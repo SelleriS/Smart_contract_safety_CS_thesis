@@ -1,0 +1,29 @@
+---
+compiled_package_info:
+  package_name: OverflowTests
+  address_alias_instantiation:
+    Extensions: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_framework: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_std: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_token: "0000000000000000000000000000000000000000000000000000000000000003"
+    core_resources: 000000000000000000000000000000000000000000000000000000000a550c18
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    testing: e58982fdcefceb626d5e0725dcab88538c8304e4160019bda5c95a8f3d034da8
+    vm_reserved: "0000000000000000000000000000000000000000000000000000000000000000"
+  source_digest: 1A6897DC90359A1B2D65BF4A1EA96CAF78EFA30F332F61AE6FDB7E1DAD060BF2
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    generate_docs: false
+    generate_abis: false
+    install_dir: ~
+    force_recompilation: false
+    additional_named_addresses:
+      testing: e58982fdcefceb626d5e0725dcab88538c8304e4160019bda5c95a8f3d034da8
+    architecture: ~
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+dependencies:
+  - AptosFramework
+  - AptosStdlib
+  - MoveStdlib

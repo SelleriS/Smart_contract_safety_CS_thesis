@@ -1,0 +1,29 @@
+---
+compiled_package_info:
+  package_name: UnprotectedTests
+  address_alias_instantiation:
+    Extensions: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_framework: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_std: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_token: "0000000000000000000000000000000000000000000000000000000000000003"
+    core_resources: 000000000000000000000000000000000000000000000000000000000a550c18
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    testing: 3395fbb8e6ffc8cfcab9cd29b841caae42296355ebf008695680ec71aaa4adda
+    vm_reserved: "0000000000000000000000000000000000000000000000000000000000000000"
+  source_digest: 8DB9082031E90B606C7A6EC49B65B3BCCC84E55313A2F7F1B4F4DD1E75FC5F3E
+  build_flags:
+    dev_mode: true
+    test_mode: true
+    generate_docs: false
+    generate_abis: false
+    install_dir: ~
+    force_recompilation: false
+    additional_named_addresses:
+      testing: 3395fbb8e6ffc8cfcab9cd29b841caae42296355ebf008695680ec71aaa4adda
+    architecture: ~
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+dependencies:
+  - AptosFramework
+  - AptosStdlib
+  - MoveStdlib

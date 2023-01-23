@@ -113,10 +113,10 @@ module testing::crowdfunding{
     public entry fun claimFunds<CoinType>(account: &signer, fund_addr: address) acquires Deposit, CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
         assertGoalReached<CoinType>(fund_addr, true);
-        let addr = signer::address_of(account);
 
-        //CHECK: Only owner can call this function                                       <======= Removing this check makes the function unprotected!
-        assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);  
+        //CHECK: Only owner can call this function       
+        let addr = signer::address_of(account);                               
+        assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);   //<======= Removing this check makes the function unprotected!
 
         let donors = &mut borrow_global_mut<CrowdFunding<CoinType>>(fund_addr).donors;
         withdrawCoinsFromDeposits<CoinType>(addr, donors);

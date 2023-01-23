@@ -30,10 +30,10 @@ module testing::crowdfundingTests{
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_a), 500);
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_b), 500);
 
-        crowdfunding::donate<coin::FakeMoney>(&donor_a, 200);
-        crowdfunding::donate<coin::FakeMoney>(&donor_b, 200);
+        crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
+        crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 200);
 
-        crowdfunding::claimFunds<coin::FakeMoney>(&donor_a);
+        crowdfunding::claimFunds<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
 
         let balance_a = coin::balance<coin::FakeMoney>(signer::address_of(&donor_a));
         assert!(balance_a <= 200, ANYONE_CAN_CLAIM_DONATIONS); // <===== Error is thrown because donor_a's balance is above 200 which means donor_a has claimed the funds of the contract

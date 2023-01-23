@@ -70,14 +70,14 @@ module testing::crowdfunding{
         );
     }
 
-    public entry fun donate<CoinType>(account: &signer, amount: u64) acquires Deposit, CrowdFunding{
-        assertCrowdfundingInitialized<CoinType>();
+    public entry fun donate<CoinType>(account: &signer, fund_addr: address, amount: u64) acquires Deposit, CrowdFunding{
+        assertCrowdfundingInitialized<CoinType>(fund_addr);
         // Get address of `signer` by utilizing `Signer` module of Standard Library
         let addr = signer::address_of(account);
         assert!(coin::balance<CoinType>(addr) >= amount, ENO_SUFFICIENT_FUND);
         let coin_to_deposit = coin::withdraw<CoinType>(account, amount);
         let val = coin::value<CoinType>(&coin_to_deposit);
-        let cf = borrow_global_mut<CrowdFunding<CoinType>>(@testing);
+        let cf = borrow_global_mut<CrowdFunding<CoinType>>(fund_addr);
 
         // Check if resource doesn't already exist. If it doesn't create one
         if(!exists<Deposit<CoinType>>(addr)){
@@ -99,13 +99,13 @@ module testing::crowdfunding{
     }
 
 
-    public entry fun getRefund<CoinType>(addr: address) acquires Deposit, CrowdFunding{
-        assertCrowdfundingInitialized<CoinType>();
+    public entry fun getRefund<CoinType>(addr: address, fund_addr: address) acquires Deposit, CrowdFunding{
+        assertCrowdfundingInitialized<CoinType>(fund_addr);
         
         // Checks 
         assert!(exists<Deposit<CoinType>>(addr), ENO_DEPOSIT);
-        assertGoalReached<CoinType>(false);
-        assertDeadlinePassed<CoinType>();
+        assertGoalReached<CoinType>(fund_addr, false);
+        assertDeadlinePassed<CoinType>(fund_addr);
 
         // Extract `Deposit` resource from donor account.
         // And then deconstruct resource to get stored value.
@@ -118,31 +118,30 @@ module testing::crowdfunding{
 
     /// This function doesn't use Deposit, but it calls a function that does
     /// So, this function has to acquire Deposit as well
-    public entry fun claimFunds<CoinType>(account: &signer) acquires Deposit, CrowdFunding{
-        assertCrowdfundingInitialized<CoinType>();
-        // Only owner can call this function
-        let addr = signer::address_of(account);
+    public entry fun claimFunds<CoinType>(account: &signer, fund_addr: address) acquires Deposit, CrowdFunding{
+        assertCrowdfundingInitialized<CoinType>(fund_addr);
+        assertGoalReached<CoinType>(fund_addr, true);
 
-        //Checks
-        assert!(addr == @testing, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);
-        assertGoalReached<CoinType>(true);
+        //CHECK: Only owner can call this function       
+        let addr = signer::address_of(account);                               
+        assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);   //<======= Removing this check makes the function unprotected!
 
-        let donors = &mut borrow_global_mut<CrowdFunding<CoinType>>(@testing).donors;
-        withdrawCoinsFromDeposits<CoinType>(donors);
+        let donors = &mut borrow_global_mut<CrowdFunding<CoinType>>(addr).donors;
+        withdrawCoinsFromDeposits<CoinType>(addr, donors);
     }
 
 
 ///////////////////////////////////////////////
 //             Helper Functions              //
 ///////////////////////////////////////////////
-    // Check if the crowd funding campaign is initialized/ exists
-    fun assertCrowdfundingInitialized<CoinType>() {
-        assert!(exists<CrowdFunding<CoinType>>(@testing), CAMPAIGN_DOES_NOT_EXIST);
+        // Check if the crowd funding campaign is initialized/ exists
+    fun assertCrowdfundingInitialized<CoinType>(fund_addr: address) {
+        assert!(exists<CrowdFunding<CoinType>>(fund_addr), CAMPAIGN_DOES_NOT_EXIST);
     }
 
     // Check if deadline has passed
-    fun assertDeadlinePassed<CoinType>() acquires CrowdFunding{
-        let cf = borrow_global<CrowdFunding<CoinType>>(@testing);
+    fun assertDeadlinePassed<CoinType>(fund_addr: address) acquires CrowdFunding{
+        let cf = borrow_global<CrowdFunding<CoinType>>(fund_addr);
         let deadline = cf.deadline;
         //let now = timestamp::now_seconds()/DAY_CONVERSION_FACTOR;
         let now = timestamp::now_seconds()/MINUTE_CONVERSION_FACTOR;
@@ -150,8 +149,8 @@ module testing::crowdfunding{
     }
 
     // Check if goal is (not) reached
-    fun assertGoalReached<CoinType>(checkReached: bool) acquires CrowdFunding{
-        let cf = borrow_global<CrowdFunding<CoinType>>(@testing);
+    fun assertGoalReached<CoinType>(fund_addr: address, checkReached: bool) acquires CrowdFunding{
+        let cf = borrow_global<CrowdFunding<CoinType>>(fund_addr);
         if(checkReached){
             assert!(cf.funding >= cf.goal, CAMPAIGN_GOAL_NOT_REACHED);
         } else {
@@ -161,12 +160,12 @@ module testing::crowdfunding{
 
     // Go through donors vector 
     // Withdraw their deposits and deposit the coins they contain at the crowdfunding address
-    fun withdrawCoinsFromDeposits<CoinType>(donors: &mut vector<address>) acquires Deposit{
+    fun withdrawCoinsFromDeposits<CoinType>(fund_addr: address, donors: &mut vector<address>) acquires Deposit{
         while (!vector::is_empty<address>(donors)){
             let donor_addr = vector::pop_back<address>(donors);
             // Extract `Deposit` resource from donor account and deconstruct the resource to get stored coins
             let Deposit<CoinType>{ coin: coins } = move_from<Deposit<CoinType>>(donor_addr);
-            coin::deposit(@testing, coins);
+            coin::deposit(fund_addr, coins);
         }
     }
 }

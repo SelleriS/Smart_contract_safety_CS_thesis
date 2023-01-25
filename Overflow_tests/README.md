@@ -10,11 +10,12 @@ This particular experiment is created to prove that the Move VM can detect over/
 2. Download the *Overflow_Tests* directory
 3. <code>cd</code> into the directory
 4. Run the following commands:
-    <code>
+
+    ```
         aptos init
         aptos move compile --named-addresses testing=default
         aptos move test --named-addresses testing=default
-    </code>
+    ```
 
 ## Findings
 When the tests are run, one can see that three tests are being run with the following outcomes:

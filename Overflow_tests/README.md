@@ -6,7 +6,7 @@ This research aims to compare Move to Solidity and see if Move can solve the mos
 This particular experiment is created to prove that the Move VM can detect over/underflows and thus prevent bugs related to them.
 
 ## How to run the experiment?
-1. Download the Aptos Move CLI like explained at [Aptos Move CLI](https://aptos.dev/cli-tools/aptos-cli-tool/install-aptos-cli/)
+1. Download the [Aptos Move CLI](https://aptos.dev/cli-tools/aptos-cli-tool/install-aptos-cli/)
 2. Download the *Overflow_Tests* directory
 3. <code>cd</code> into the directory
 4. Run the following commands:
@@ -16,6 +16,8 @@ This particular experiment is created to prove that the Move VM can detect over/
         aptos move compile --named-addresses testing=default
         aptos move test --named-addresses testing=default
     ```
+
+I saved the aptos CLI executable in a bin folder in the home directory of my computer and created an alias to the aptos CLI which makes the commands more readable. If you didn't do this, you may have to run the commands like eg. <code>~/bin/aptos init</code> instead of just using <code>aptos init</code>.
 
 ## Findings
 When the tests are run, one can see that three tests are being run with the following outcomes:

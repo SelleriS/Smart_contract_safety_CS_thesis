@@ -2,8 +2,8 @@
 module testing2::callback_crowdfunding {
     use testing::crowdfunding as crowdfunding;
 
-    public fun getRefund_callback<CoinType>() {
-        crowdfunding::getRefund<CoinType>(@testing);
+    public fun getRefund_callback<CoinType>(addr: address) {
+        crowdfunding::getRefund<CoinType>(addr, @testing);
     }
 }
 
@@ -113,7 +113,7 @@ module testing::crowdfunding{
         coin::deposit(addr, coins);
 
         //Let caller know the event has taken place
-        getRefund_callback<CoinType>();
+        getRefund_callback<CoinType>(addr);
     }
 
     /// This function doesn't use Deposit, but it calls a function that does

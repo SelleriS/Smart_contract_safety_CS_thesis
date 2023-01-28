@@ -17,21 +17,27 @@ module testing::crowdfundingTests{
         let numberOfMinutes = 1u64;
         let totalMoney = 1000u64;
         
+        // Creating accounts
         account::create_account_for_test(signer::address_of(&fund));
         account::create_account_for_test(signer::address_of(&donor_a));
         account::create_account_for_test(signer::address_of(&donor_b));
         account::create_account_for_test(signer::address_of(&framework));
         
-        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&donor_a, goal, numberOfMinutes);
+        // Creating FakeMoney coins and registering them in the accounts that have to be able to handle (contain) them
         coin::create_fake_money(&framework, &donor_a, totalMoney);
         coin::register<coin::FakeMoney>(&donor_b);
         coin::register<coin::FakeMoney>(&fund);
+
+        // Allocating the FaekMoeny coins to each donor account
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_a), 500);
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_b), 500);
 
+        // Initialising the crowdfunding contract and donating FakeMoeny coins to it
+        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&fund, goal, numberOfMinutes);       
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&donor_a), 200);
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&donor_a), 200);
 
+        // Donor_a (= owner) claims teh funds 
         crowdfunding::claimFunds<coin::FakeMoney>(&donor_a, signer::address_of(&donor_a));
 
         let balance_a = coin::balance<coin::FakeMoney>(signer::address_of(&donor_a));
@@ -49,18 +55,23 @@ module testing::crowdfundingTests{
         let numberOfMinutes = 1u64;
         let totalMoney = 1000u64;
         
+        // Creating accounts
         account::create_account_for_test(signer::address_of(&fund));
         account::create_account_for_test(signer::address_of(&donor_a));
         account::create_account_for_test(signer::address_of(&donor_b));
         account::create_account_for_test(signer::address_of(&framework));
         
-        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&donor_a, goal, numberOfMinutes);
+        // Creating FakeMoney coins and registering them in the accounts that have to be able to handle (contain) them
         coin::create_fake_money(&framework, &donor_a, totalMoney);
         coin::register<coin::FakeMoney>(&donor_b);
         coin::register<coin::FakeMoney>(&fund);
+
+        // Allocating the FaekMoeny coins to each donor account
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_a), 500);
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_b), 500);
 
+        // Initialising the crowdfunding contract and donating FakeMoeny coins to it
+        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&fund, goal, numberOfMinutes);
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&donor_a), 200);
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 200); // <===== Error is thrown because the crowdfunding was hijacked by another account and so it is not at the same address
     }

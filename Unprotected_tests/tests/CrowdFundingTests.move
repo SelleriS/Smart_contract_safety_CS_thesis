@@ -7,7 +7,6 @@ module testing::crowdfundingTests{
     use aptos_framework::timestamp;
 
     const ANYONE_CAN_CLAIM_DONATIONS: u64 = 8;
-    const ANYONE_CAN_INITIALIZE: u64 = 9;
 
     #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
     #[expected_failure(abort_code = ANYONE_CAN_CLAIM_DONATIONS)]
@@ -18,24 +17,31 @@ module testing::crowdfundingTests{
         let numberOfMinutes = 1u64;
         let totalMoney = 1000u64;
         
+        // Creating accounts
         account::create_account_for_test(signer::address_of(&fund));
         account::create_account_for_test(signer::address_of(&donor_a));
         account::create_account_for_test(signer::address_of(&donor_b));
         account::create_account_for_test(signer::address_of(&framework));
         
-        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&fund, goal, numberOfMinutes);
+        // Creating FakeMoney coins and registering them in the accounts that have to be able to handle (contain) them
         coin::create_fake_money(&framework, &donor_a, totalMoney);
         coin::register<coin::FakeMoney>(&donor_b);
         coin::register<coin::FakeMoney>(&fund);
+
+        // Allocating the FaekMoeny coins to each donor account
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_a), 500);
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_b), 500);
 
-        crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
-        crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 200);
+        // Initialising the crowdfunding contract and donating FakeMoeny coins to it
+        crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&fund, goal, numberOfMinutes);
+        //crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
+        crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 400);
 
+        // Donor account tries to claim the funds of the crowdfunding 
         crowdfunding::claimFunds<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
 
+        // Check if the donor account was successful in claiming the funds
         let balance_a = coin::balance<coin::FakeMoney>(signer::address_of(&donor_a));
-        assert!(balance_a <= 200, ANYONE_CAN_CLAIM_DONATIONS); // <===== Error is thrown because donor_a's balance is above 200 which means donor_a has claimed the funds of the contract
+        assert!(balance_a <= 500, ANYONE_CAN_CLAIM_DONATIONS); // <===== Error is thrown because donor_a's balance is above 200 which means donor_a has claimed the funds of the contract
     }
 }

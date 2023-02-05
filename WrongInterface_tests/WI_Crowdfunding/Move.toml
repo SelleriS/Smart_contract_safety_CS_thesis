@@ -1,5 +1,5 @@
 [package]
-name = 'ConstructorTests'
+name = 'WICrowdfunding'
 version = '1.0.0'
 
 [dependencies.AptosFramework]
@@ -7,6 +7,9 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'devnet'
 subdir = 'aptos-move/framework/aptos-framework'
 
+[dependencies.WIFlagging]
+local = "../WI_Flagging"
+
 [addresses]
 std = "0x1"
-testing = "_"
+testing = "0x815e0c554f2cdee0ff4e249727ba275952b30a09a11ba47d251a2fd2a5e28172"

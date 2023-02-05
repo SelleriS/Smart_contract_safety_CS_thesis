@@ -1,5 +1,5 @@
 [package]
-name = 'ConstructorTests'
+name = 'WIFlagging'
 version = '1.0.0'
 
 [dependencies.AptosFramework]
@@ -9,4 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
 std = "0x1"
-testing = "_"
+testing2 = "0xf9b87fdbdfda614b1aea4d5f695788cdb013241c7add0183c06cbbae29c1e99a"

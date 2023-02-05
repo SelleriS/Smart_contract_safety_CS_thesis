@@ -1,35 +1,9 @@
-module testing2::flagging_donor{
-
-    const EDONOR_FLAGGED: u64 = 101;
-
-    struct BigDonorFlag has key {
-        flagged: bool,
-    }
-
-    public fun addFlag(account: &signer, amount: u64) {
-        if(amount >= 300u64){
-            move_to(
-                account,
-                BigDonorFlag {
-                    flagged: true,
-                }
-            );
-        }
-    }
-
-    public entry fun isFlagged(addr: address) {
-        assert!(!exists<BigDonorFlag>(addr), EDONOR_FLAGGED);
-    }
-
-}
-
-
 module testing::crowdfunding{
     use std::signer;
     use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::coin::{Self, Coin};
-    use testing2::flagging_donor::addFlag;
+    use testing2::flagging_donor;
 
 ///////////////////////////////////////////////
 //                Error Codes                //
@@ -42,13 +16,15 @@ module testing::crowdfunding{
 
     const CAMPAIGN_NOT_YET_EXPIRED: u64 = 3;
 
-    const CAMPAIGN_GOAL_NOT_REACHED: u64 = 4;
+    const CAMPAIGN_EXPIRED: u64 = 4;
 
-    const CAMPAIGN_GOAL_REACHED: u64 = 5;
+    const CAMPAIGN_GOAL_NOT_REACHED: u64 = 5;
 
-    const EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION: u64 = 6;
+    const CAMPAIGN_GOAL_REACHED: u64 = 6;
 
-    const CAMPAIGN_DOES_NOT_EXIST: u64 = 7;
+    const EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION: u64 = 7;
+
+    const CAMPAIGN_DOES_NOT_EXIST: u64 = 8;
 
     // Constants
     const DAY_CONVERSION_FACTOR: u64 = 24 * 60 * 60;
@@ -66,6 +42,7 @@ module testing::crowdfunding{
         goal: u64,
         deadline: u64,
         donors: vector<address>,
+        n_of_donors: u64,
         funding: u64,
     }
 
@@ -86,6 +63,7 @@ module testing::crowdfunding{
                 goal: goal,
                 deadline: deadline,
                 donors: vector::empty<address>(),
+                n_of_donors: 0,
                 funding: 0,
             }
         );
@@ -93,6 +71,8 @@ module testing::crowdfunding{
 
     public entry fun donate<CoinType>(account: &signer, fund_addr: address, amount: u64) acquires Deposit, CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
+        assertDeadlinePassed<CoinType>(fund_addr, false);
+
         // Get address of `signer` by utilizing `Signer` module of Standard Library
         let addr = signer::address_of(account);
         assert!(coin::balance<CoinType>(addr) >= amount, ENO_SUFFICIENT_FUND);
@@ -100,7 +80,7 @@ module testing::crowdfunding{
         let val = coin::value<CoinType>(&coin_to_deposit);
         let cf = borrow_global_mut<CrowdFunding<CoinType>>(fund_addr); 
 
-        addFlag(account, amount); //<====== Test to see if a signer object can be passed around
+        flagging_donor::addFlag(account, amount); //<====== Test to see if a signer object can be passed around
 
         // Check if resource doesn't already exist. If it doesn't create one
         if(!exists<Deposit<CoinType>>(addr)){
@@ -113,6 +93,7 @@ module testing::crowdfunding{
             // Add donor to vector of donors
             let donors = &mut cf.donors;
             vector::push_back<address>(donors, addr);
+            cf.n_of_donors = cf.n_of_donors + 1;
         } else{
             let deposit = borrow_global_mut<Deposit<CoinType>>(addr);
             coin::merge<CoinType>(&mut deposit.coin, coin_to_deposit);
@@ -123,16 +104,25 @@ module testing::crowdfunding{
 
     public entry fun getRefund<CoinType>(account: &signer, fund_addr: address) acquires Deposit, CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
+        assertGoalReached<CoinType>(fund_addr, false);
+        assertDeadlinePassed<CoinType>(fund_addr, true);
+
         // Get address of `signer` by utilizing `Signer` module of Standard Library
         let addr = signer::address_of(account);
         assert!(exists<Deposit<CoinType>>(addr), ENO_DEPOSIT);
-        assertGoalReached<CoinType>(fund_addr, false);
-        assertDeadlinePassed<CoinType>(fund_addr);
 
         // Extract `Deposit` resource from donor account.
         // And then deconstruct resource to get stored value.
         let Deposit<CoinType>{ coin: coins } = move_from<Deposit<CoinType>>(addr);
         coin::deposit(addr, coins);
+        flagging_donor::unFlag(addr);
+
+        // If all donors have asked for a refund, th CF object can be destroyed
+        let n_of_donors = &mut borrow_global_mut<CrowdFunding<CoinType>>(fund_addr).n_of_donors;
+        *n_of_donors = *n_of_donors - 1;
+        if(*n_of_donors == 0){
+            destroyCrowdfunding<CoinType>(fund_addr);
+        };
     }
 
     /// This function doesn't use Deposit, but it calls a function that does
@@ -140,6 +130,7 @@ module testing::crowdfunding{
     public entry fun claimFunds<CoinType>(account: &signer, fund_addr: address) acquires Deposit, CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
         assertGoalReached<CoinType>(fund_addr, true);
+        assertDeadlinePassed<CoinType>(fund_addr, true);
 
         //CHECK: Only owner can call this function       
         let addr = signer::address_of(account);                               
@@ -147,6 +138,22 @@ module testing::crowdfunding{
 
         let donors = &mut borrow_global_mut<CrowdFunding<CoinType>>(fund_addr).donors;
         withdrawCoinsFromDeposits<CoinType>(addr, donors);
+        destroyCrowdfunding<CoinType>(fund_addr);
+    }
+
+    // Only callable if the deadline has passed, the goal hasn't been reached and there are no donors left to refund
+    public entry fun selfDestruct<CoinType>(account: &signer, fund_addr: address) acquires CrowdFunding{
+        assertCrowdfundingInitialized<CoinType>(fund_addr);
+        assertGoalReached<CoinType>(fund_addr, false);
+        assertDeadlinePassed<CoinType>(fund_addr, true);
+        
+        //CHECK: Only owner can call this function       
+        let addr = signer::address_of(account);                               
+        assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);
+        let n_of_donors = borrow_global<CrowdFunding<CoinType>>(fund_addr).n_of_donors;
+        if(n_of_donors == 0){
+            destroyCrowdfunding<CoinType>(fund_addr);
+        }
     }
 
 ///////////////////////////////////////////////
@@ -158,12 +165,17 @@ module testing::crowdfunding{
     }
 
     // Check if deadline has passed
-    fun assertDeadlinePassed<CoinType>(fund_addr: address) acquires CrowdFunding{
+    fun assertDeadlinePassed<CoinType>(fund_addr: address, checkPassed: bool) acquires CrowdFunding{
         let cf = borrow_global<CrowdFunding<CoinType>>(fund_addr);
         let deadline = cf.deadline;
         //let now = timestamp::now_seconds()/DAY_CONVERSION_FACTOR;
         let now = timestamp::now_seconds()/MINUTE_CONVERSION_FACTOR;
-        assert!(now >= deadline, CAMPAIGN_NOT_YET_EXPIRED);
+        if(checkPassed){
+            assert!(now >= deadline, CAMPAIGN_NOT_YET_EXPIRED);
+        } else {
+            assert!(now < deadline, CAMPAIGN_EXPIRED);
+        }
+        
     }
 
     // Check if goal is (not) reached
@@ -184,6 +196,20 @@ module testing::crowdfunding{
             // Extract `Deposit` resource from donor account and deconstruct the resource to get stored coins
             let Deposit<CoinType>{ coin: coins } = move_from<Deposit<CoinType>>(donor_addr);
             coin::deposit(fund_addr, coins);
+            flagging_donor::unFlag(donor_addr);
         }
+    }
+
+    // Destroy crowdfunding resource by unpacking it into its fields. 
+    // This is a privileged operation that can only be done inside the module that declares 
+    // the `Crowdfunding` resource
+    fun destroyCrowdfunding<CoinType>(fund_addr: address) acquires CrowdFunding{
+        let CrowdFunding<CoinType>{
+            goal: _goal,
+            deadline: _deadline,
+            donors: _donors,
+            n_of_donors: _n_of_donors,
+            funding: _funding,
+        } = move_from<CrowdFunding<CoinType>>(fund_addr); 
     }
 }

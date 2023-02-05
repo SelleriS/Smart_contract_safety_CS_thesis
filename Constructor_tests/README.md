@@ -15,7 +15,8 @@ The [Crowdfunding contract](../Crowdfunding_contract/sources/CrowdFunding.move) 
 
  ```
  aptos init
- aptos move compile --named-addresses testing=default aptos move test --named-addresses testing=default
+ aptos move compile --named-addresses testing=default 
+ aptos move test --named-addresses testing=default
  ```
 
 The Aptos CLI executable is saved in a *bin* folder in the home directory. An alias was created for the Aptos CLI to make the commands more readable. If the reader chooses not to create an alias, run the previous commands as follows: e.g. <code>~/bin/aptos init</code> instead of just using <code>aptos init</code>.

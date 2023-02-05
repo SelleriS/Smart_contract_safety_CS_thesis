@@ -1,35 +1,8 @@
-module testing2::flagging_donor{
-
-    const EDONOR_FLAGGED: u64 = 101;
-
-    struct BigDonorFlag has key {
-        flagged: bool,
-    }
-
-    public fun addFlag(account: &signer, amount: u64) {
-        if(amount >= 300u64){
-            move_to(
-                account,
-                BigDonorFlag {
-                    flagged: true,
-                }
-            );
-        }
-    }
-
-    public entry fun isFlagged(addr: address) {
-        assert!(!exists<BigDonorFlag>(addr), EDONOR_FLAGGED);
-    }
-
-}
-
-
 module testing::crowdfunding{
     use std::signer;
     use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::coin::{Self, Coin};
-    use testing2::flagging_donor::addFlag;
 
 ///////////////////////////////////////////////
 //                Error Codes                //
@@ -99,8 +72,6 @@ module testing::crowdfunding{
         let coin_to_deposit = coin::withdraw<CoinType>(account, amount);
         let val = coin::value<CoinType>(&coin_to_deposit);
         let cf = borrow_global_mut<CrowdFunding<CoinType>>(fund_addr); 
-
-        addFlag(account, amount); //<====== Test to see if a signer object can be passed around
 
         // Check if resource doesn't already exist. If it doesn't create one
         if(!exists<Deposit<CoinType>>(addr)){

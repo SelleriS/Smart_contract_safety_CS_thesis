@@ -1,4 +1,4 @@
- Move passing signer test case
+# Move wrong interface test case
 
 ## Goal 
 This research aims to compare Move to Solidity and see if Move can solve the most common vulnerabilities found in Solidity. The most common Solidity bugs are replicated using the Move programming language and the Aptos Move framework to see if they are still prevalent or caught during compilation or runtime.

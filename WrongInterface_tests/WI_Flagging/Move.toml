@@ -1,5 +1,5 @@
 [package]
-name = 'WIFlagging'
+name = 'WIFlagging2'
 version = '1.0.0'
 
 [dependencies.AptosFramework]

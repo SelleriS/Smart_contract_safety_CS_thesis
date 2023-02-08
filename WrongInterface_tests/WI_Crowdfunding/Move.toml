@@ -7,7 +7,7 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'devnet'
 subdir = 'aptos-move/framework/aptos-framework'
 
-[dependencies.WIFlagging]
+[dependencies.WIFlagging2]
 local = "../WI_Flagging"
 
 [addresses]

@@ -1,7 +1,7 @@
 #[test_only]
 module testing::crowdfundingTests{
     use testing::crowdfunding;
-    use testing2::flagging_donor;
+    use testing2::flagging_donor2 as flagging_donor;
     use aptos_framework::account;
     use std::signer;
     use aptos_framework::coin;
@@ -33,10 +33,8 @@ module testing::crowdfundingTests{
 
         // Initialising the crowdfunding contract and donating FakeMoney coins to it
         crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&fund, goal, numberOfMinutes);
-        crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 40000000);
-        crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 20000000);
-
-        // Check if donor_a account is flagged
-        flagging_donor::isFlagged(signer::address_of(&donor_a)); // <===== Error is thrown because donor_a has been flagged, thus proof that a signer object can be passed around
+        crowdfunding::donate_test<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 40000000);
+        crowdfunding::donate_test<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 20000000);
+        crowdfunding::donate_test<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 10000000); // should give an error
     }
 }

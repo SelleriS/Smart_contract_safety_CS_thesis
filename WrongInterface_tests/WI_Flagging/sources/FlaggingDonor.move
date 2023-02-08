@@ -1,24 +1,21 @@
-module testing2::flagging_donor{
+module testing2::flagging_donor2{
     use std::signer;
 
     const EDONOR_FLAGGED: u64 = 101;
-    const EDONOR_NOT_FLAGGED: u64 = 102;
 
     struct BigDonorFlag has key {
         flagged: bool,
     }
 
-    public fun addFlag(account: &signer, amount: u64) acquires BigDonorFlag {
+    public fun addFlag(account: &signer, amount: u64):bool acquires BigDonorFlag {
         let addr = signer::address_of(account);
-        
-        if(amount >= 30000000u64){
-            if(!exists<BigDonorFlag>(addr)){
-                move_to(account, BigDonorFlag {flagged: true});
-            } else {
-                let flag = borrow_global_mut<BigDonorFlag>(addr);
-                flag.flagged = true;
-            } 
-        }
+        if(!exists<BigDonorFlag>(addr)){
+            move_to(account, BigDonorFlag {flagged: (amount >= 30000000u64)});
+        } else {
+            let flag = borrow_global_mut<BigDonorFlag>(addr);
+            flag.flagged = (amount >= 30000000u64);
+        }; 
+        (amount >= 30000000u64)
     }
 
     // Used for testing purposes
@@ -30,5 +27,18 @@ module testing2::flagging_donor{
         if(exists<BigDonorFlag>(addr)){
             let BigDonorFlag{flagged: _flagged} = move_from<BigDonorFlag>(addr);
         }
+    }
+
+    #[test_only]
+    public fun addFlag_test(account: &signer, amount: u64):bool acquires BigDonorFlag {
+        let addr = signer::address_of(account);
+        isFlagged(addr); // prevents from donating twice. Used to see if errors are pushed upwards
+        if(!exists<BigDonorFlag>(addr)){
+            move_to(account, BigDonorFlag {flagged: (amount >= 30000000u64)});
+        } else {
+            let flag = borrow_global_mut<BigDonorFlag>(addr);
+            flag.flagged = (amount >= 30000000u64);
+        }; 
+        (amount >= 30000000u64)
     }
 }

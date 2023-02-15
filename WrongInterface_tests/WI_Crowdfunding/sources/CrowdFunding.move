@@ -148,12 +148,14 @@ module testing::crowdfunding{
     // Only callable if the deadline has passed, the goal hasn't been reached and there are no donors left to refund
     public entry fun selfDestruct<CoinType>(account: &signer, fund_addr: address) acquires CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
-        assertGoalReached<CoinType>(fund_addr, false);
         assertDeadlinePassed<CoinType>(fund_addr, true);
+        
         
         //CHECK: Only owner can call this function       
         let addr = signer::address_of(account);                               
         assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);
+
+        // This function can only be called if there are no donors
         let n_of_donors = borrow_global<CrowdFunding<CoinType>>(fund_addr).n_of_donors;
         assert!(n_of_donors == 0, ENOT_ALL_DONORS_ARE_REFUNDED);
         destroyCrowdfunding<CoinType>(fund_addr);
@@ -215,8 +217,6 @@ module testing::crowdfunding{
             funding: _funding,
         } = move_from<CrowdFunding<CoinType>>(fund_addr); 
     }
-
-
 
 ///////////////////////////////////////////////
 //               Test Functions              //

@@ -9,4 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
 std = "0x1"
-crowdfunding = "_"
+testing = "_"

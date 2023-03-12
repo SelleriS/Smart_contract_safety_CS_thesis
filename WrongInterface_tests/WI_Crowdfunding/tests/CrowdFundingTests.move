@@ -7,6 +7,8 @@ module testing::crowdfundingTests{
     use aptos_framework::coin;
     use aptos_framework::timestamp;
 
+    // Test to see if errors that occur in the Flagging contract are pushed upward to the crowdfunding contract
+    // In this test the test_flagging function will throw an error if a donor tries to donate a second time
     #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
     #[expected_failure(abort_code = flagging_donor::EDONOR_FLAGGED)]
     fun test_pass_signer(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {

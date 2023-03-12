@@ -1,13 +1,13 @@
 #[test_only]
-module crowdfunding::crowdfundingTests{
-    use crowdfunding::crowdfunding;
+module testing::crowdfundingTests{
+    use testing::crowdfunding;
     use aptos_framework::account;
     use std::signer;
     use aptos_framework::coin;
     use aptos_framework::timestamp;
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::EONLY_DEPLOYER_CAN_INITIALIZE)]
+    #[test(fund = @testing,  donor_a = @0xAA, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::EONLY_DEPLOYER_CAN_INITIALIZE)]
     fun test_only_deployer_can_initialize(fund: signer, donor_a: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -21,8 +21,8 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::initialize_crowdfunding<coin::FakeMoney>(&donor_a, goal, numberOfMinutes);
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::ENO_SUFFICIENT_FUND)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ENO_SUFFICIENT_FUND)]
     fun test_not_enough_funds(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -47,8 +47,8 @@ module crowdfunding::crowdfundingTests{
     }
 
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::ENO_DEPOSIT)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ENO_DEPOSIT)]
     fun test_no_deposit(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -69,12 +69,12 @@ module crowdfunding::crowdfundingTests{
         coin::transfer<coin::FakeMoney>(&framework, signer::address_of(&donor_b), 500);
 
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
-        crowdfunding::getRefund<coin::FakeMoney>(&donor_b, signer::address_of(&fund));
+        crowdfunding::getRefund_test<coin::FakeMoney>(&donor_b, signer::address_of(&fund));
     }
 
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::CAMPAIGN_NOT_YET_EXPIRED)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ECAMPAIGN_NOT_YET_EXPIRED)]
     fun test_refund_not_yet_expired(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -98,8 +98,8 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::getRefund<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::CAMPAIGN_GOAL_NOT_REACHED)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ECAMPAIGN_GOAL_NOT_REACHED)]
     fun test_goal_not_reached(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -122,11 +122,11 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 100);
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 100);
 
-        crowdfunding::claimFunds<coin::FakeMoney>(&fund, signer::address_of(&fund));
+        crowdfunding::claimFunds_test<coin::FakeMoney>(&fund, signer::address_of(&fund));
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::CAMPAIGN_GOAL_REACHED)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ECAMPAIGN_GOAL_REACHED)]
     fun test_refund_goal_not_reached(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -150,8 +150,8 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::getRefund<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION)]
     fun test_only_owner_can_claim(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -174,11 +174,11 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 100);
 
-        crowdfunding::claimFunds<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
+        crowdfunding::claimFunds_test<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = crowdfunding::crowdfunding::CAMPAIGN_DOES_NOT_EXIST)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[expected_failure(abort_code = crowdfunding::ECAMPAIGN_DOES_NOT_EXIST)]
     fun test_no_cf_init(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -200,7 +200,7 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
     }
 
-    #[test(fund = @crowdfunding,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
+    #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
     fun test_success(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -223,6 +223,6 @@ module crowdfunding::crowdfundingTests{
         crowdfunding::donate<coin::FakeMoney>(&donor_a, signer::address_of(&fund), 200);
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 200);
 
-        crowdfunding::claimFunds<coin::FakeMoney>(&fund, signer::address_of(&fund));
+        crowdfunding::claimFunds_test<coin::FakeMoney>(&fund, signer::address_of(&fund));
     }
 }

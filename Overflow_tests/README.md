@@ -22,8 +22,9 @@ The Aptos CLI executable is saved in a *bin* folder in the home directory. An al
 ## Findings
 When the tests are run, one can see that three tests are being run with the following outcomes:
 - The first test, in which an unsigned integer of 8 bits equal to 255 is overflown by adding 1 to it, throws an error.
-- The second test overflows the same unsigned int, but this time it uses a bitshift left instead of an addition. This test passes without a problem.
-- The third test underflows the 8-bit unsigned int 0 by subtracting 1. The Move VM catches this.
+- The second test underflows the 8-bit unsigned int 0 by subtracting 1. The Move VM catches this.
+- The third test overflows the same unsigned int, but this time it uses a bitshift left instead of an addition. This test passes without a problem.
+
 
 ## Discussion
 We can see that the Move VM can detect overflows and underflows at runtime and throws an error when they happen. However, it can only detect overflows when using arithmetic operations. Once more exotic techniques like bitshifts are used, the VM fails to detect and flag the overflow. Luckily, the more exotic operations are not as common, which means that in most cases and thus contracts, the Move VM will be able to detect overflows. This makes the Move language safer than older versions of Solidity (version prior to Solidity 0.8), which did not natively detect overflows. Solidity version 0.8 and newer have an inherent overflow detection which makes it on par with Move. 

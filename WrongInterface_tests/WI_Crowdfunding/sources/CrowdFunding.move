@@ -129,8 +129,8 @@ module testing::crowdfunding{
         };
     }
 
-    /// This function doesn't use Deposit, but it calls a function that does
-    /// So, this function has to acquire Deposit as well
+    // This function doesn't use Deposit, but it calls a function that does
+    // So, this function has to acquire Deposit as well
     public entry fun claimFunds<CoinType>(account: &signer, fund_addr: address) acquires Deposit, CrowdFunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
         assertGoalReached<CoinType>(fund_addr, true);
@@ -150,9 +150,8 @@ module testing::crowdfunding{
         assertCrowdfundingInitialized<CoinType>(fund_addr);
         assertDeadlinePassed<CoinType>(fund_addr, true);
         
-        
         //CHECK: Only owner can call this function       
-        let addr = signer::address_of(account);                               
+        let addr = signer::address_of(account);    
         assert!(addr == fund_addr, EONLY_CROWDFUNDING_OWNER_CAN_PERFORM_THIS_OPERATION);
 
         // This function can only be called if there are no donors
@@ -164,7 +163,8 @@ module testing::crowdfunding{
 ///////////////////////////////////////////////
 //             Helper Functions              //
 ///////////////////////////////////////////////
-    // Check if the crowd funding campaign is initialized/ exists
+
+    // Check if the crowdfunding campaign is initialized/exists
     fun assertCrowdfundingInitialized<CoinType>(fund_addr: address) {
         assert!(exists<CrowdFunding<CoinType>>(fund_addr), ECAMPAIGN_DOES_NOT_EXIST);
     }

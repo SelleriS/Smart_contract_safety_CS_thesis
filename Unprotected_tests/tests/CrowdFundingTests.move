@@ -6,10 +6,10 @@ module testing::crowdfundingTests{
     use aptos_framework::coin;
     use aptos_framework::timestamp;
 
-    const ANYONE_CAN_CLAIM_DONATIONS: u64 = 8;
+    const EANYONE_CAN_CLAIM_DONATIONS: u64 = 10;
 
     #[test(fund = @testing,  donor_a = @0xAA, donor_b = @0xBB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = ANYONE_CAN_CLAIM_DONATIONS)]
+    #[expected_failure(abort_code = EANYONE_CAN_CLAIM_DONATIONS)]
     fun test_only_owner_can_claim(fund: signer, donor_a: signer, donor_b: signer, framework: signer) {
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -38,10 +38,10 @@ module testing::crowdfundingTests{
         crowdfunding::donate<coin::FakeMoney>(&donor_b, signer::address_of(&fund), 400);
 
         // Donor account tries to claim the funds of the crowdfunding 
-        crowdfunding::claimFunds<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
+        crowdfunding::claimFunds_test<coin::FakeMoney>(&donor_a, signer::address_of(&fund));
 
         // Check if the donor account was successful in claiming the funds
         let balance_a = coin::balance<coin::FakeMoney>(signer::address_of(&donor_a));
-        assert!(balance_a <= 500, ANYONE_CAN_CLAIM_DONATIONS); // <===== Error is thrown because donor_a's balance is above 200 which means donor_a has claimed the funds of the contract
+        assert!(balance_a <= 500, EANYONE_CAN_CLAIM_DONATIONS); // <===== Error is thrown because donor_a's balance is above 200 which means donor_a has claimed the funds of the contract
     }
 }

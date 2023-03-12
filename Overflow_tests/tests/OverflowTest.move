@@ -3,7 +3,7 @@ module testing::overflowTest{
     const EOVERFLOW: u64 = 1;
     const EUNDERFLOW: u64 = 2;
 
-// ARITHMETIC OPERATIONS
+//ARITHMETIC OPERATIONS
     //Overflow caught by compiler
     #[test]
     fun test_overflow(): u8 {
@@ -20,7 +20,7 @@ module testing::overflowTest{
         return num1
     }
 
-// BITWISE OPERATIONS
+//BITWISE OPERATIONS
     //Overflow not caught by compiler. It has to be checked separatly 
     #[test]
     #[expected_failure(abort_code = EOVERFLOW)]

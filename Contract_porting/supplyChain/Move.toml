@@ -1,0 +1,13 @@
+[package]
+name = 'SupplyChain'
+version = '1.0.0'
+upgrade_policy = 'compatible'
+
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'devnet'
+subdir = 'aptos-move/framework/aptos-framework'
+
+[addresses]
+std = "0x01"
+testing = "0xe65705dba3b7e6e8962a28d16d1431e29c50fae2bb918a920f147702c8cf4ff5"

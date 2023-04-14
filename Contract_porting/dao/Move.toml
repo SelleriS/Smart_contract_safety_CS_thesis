@@ -1,0 +1,12 @@
+[package]
+name = 'DAO'
+version = '1.0.0'
+
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'devnet'
+subdir = 'aptos-move/framework/aptos-framework'
+
+[addresses]
+std = "0x01"
+testing = "0x43a9ae15d0dd57e354c03658201468e61e94387d35f3b931e5e21bc13d8ec582"

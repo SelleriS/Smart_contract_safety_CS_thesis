@@ -1,0 +1,12 @@
+[package]
+name = 'AMM'
+version = '1.0.0'
+
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'devnet'
+subdir = 'aptos-move/framework/aptos-framework'
+
+[addresses]
+std = "0x01"
+testing = "0x718703c91fdf2cf9ec9913018c144353b4c93ed617f31ebd521cab47f1e3becb"

@@ -18,6 +18,7 @@ module testing::amm_contract{
 //CONSTANTS
     const FEE_PERMILLE: u64 = 3; //Fee of 0.3%
 
+//RESOURCES and STRUCTS
     struct AMM<phantom CoinType1, phantom CoinType2> has key {
         new_owner: address,
         coin1: Coin<CoinType1>,

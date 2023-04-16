@@ -134,8 +134,8 @@ module testing::dao_tests{
     }
 
     #[test(owner = @testing,  member = @0xAA, recipient = @0xAB, framework = @aptos_framework)]
-    #[expected_failure(abort_code = dao_contract::ESTILL_ACTIVE_PROPOSALS)]
-    fun test_renounce_membership_with_active_proposals(owner: signer, member: signer, recipient: signer, framework: signer) {  
+    #[expected_failure(abort_code = dao_contract::ESTILL_ACTIVE_VOTES)]
+    fun test_renounce_membership_with_active_proposal_votes(owner: signer, member: signer, recipient: signer, framework: signer) {  
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
         
@@ -299,7 +299,7 @@ module testing::dao_tests{
     }
 
     #[test(owner = @testing, member1 = @0x11, member2 = @0x12, member3 = @0x13, member4 = @0x14, recipient = @0xAC, framework = @aptos_framework)]
-    #[expected_failure(abort_code = dao_contract::ENO_PROPOSAL_WITH_ID)]
+    #[expected_failure(abort_code = dao_contract::EPROPOSAL_EXPIRED)]
     fun test_vote_after_closed(owner: signer, member1: signer, member2: signer,  member3: signer, member4: signer, recipient: signer, framework: signer) {  
         timestamp::set_time_has_started_for_testing(&framework);
         timestamp::update_global_time_for_test(11000000);
@@ -386,5 +386,42 @@ module testing::dao_tests{
         
         dao_contract::close_proposal<FakeMoney>(&owner, proposal_id);
         dao_contract::renounce_membership<FakeMoney>(&member1, signer::address_of(&owner), signer::address_of(&member1));
+    }
+
+    #[test(owner = @testing,  member1 = @0xAA, member2 = @0x11, recipient = @0xAC, framework = @aptos_framework)]
+    //#[expected_failure(abort_code = )]
+    fun test_destruction(owner: signer, member1: signer, member2: signer,recipient: signer, framework: signer) {  
+        timestamp::set_time_has_started_for_testing(&framework);
+        timestamp::update_global_time_for_test(11000000);
+        
+        account::create_account_for_test(signer::address_of(&owner));
+        account::create_account_for_test(signer::address_of(&member1));
+        account::create_account_for_test(signer::address_of(&member2));
+        account::create_account_for_test(signer::address_of(&recipient));
+        account::create_account_for_test(signer::address_of(&framework));
+
+        let totalMoney = 100000000u64; //100.000.000 octas = 1 APT
+        coin::create_fake_money(&framework, &owner, totalMoney);
+        coin::register<FakeMoney>(&owner);
+        coin::register<FakeMoney>(&member1);
+        coin::register<FakeMoney>(&member2);
+        coin::register<FakeMoney>(&recipient);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&owner), 50000000);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&member1), 40000000);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&member2), 10000000);
+
+        dao_contract::init_test_dao<FakeMoney>(&owner);
+        dao_contract::apply_for_membership<FakeMoney>(&member1, signer::address_of(&owner));
+        dao_contract::apply_for_membership<FakeMoney>(&member2, signer::address_of(&owner));
+        dao_contract::add_recipient<FakeMoney>(&owner, signer::address_of(&recipient));
+        let proposal_id = dao_contract::init_test_proposal<FakeMoney>(&member1, signer::address_of(&owner), signer::address_of(&recipient));
+        dao_contract::cast_vote<FakeMoney>(&member2, signer::address_of(&owner), proposal_id, true);
+        
+        dao_contract::execute_proposal<FakeMoney>(&owner, proposal_id);
+        dao_contract::destroy_dao<FakeMoney>(&owner);
+
+        assert!(!dao_contract::is_owner_test<FakeMoney>(&owner), 101);
+        assert!(!dao_contract::is_member_test<FakeMoney>(&member1), 102);
+        assert!(!dao_contract::is_member_test<FakeMoney>(&member2), 103);
     }
 }

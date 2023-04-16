@@ -16,7 +16,7 @@ module testing::dao_contract{
     const ENOT_A_MEMBER: u64 = 5;
     const ENO_SUFFICIENT_FUND: u64 = 6;
     const EONLY_OWNER_OR_MEMBER_CAN_CALL: u64 = 7;
-    const ESTILL_ACTIVE_PROPOSALS: u64 = 8;
+    //const ESTILL_ACTIVE_PROPOSALS: u64 = 8;
     const ERECIPIENT_NOT_WHITELISTED: u64 = 9;
     const EALREADY_VOTED: u64 = 10;
     const EPROPOSAL_EXPIRED: u64 = 11;
@@ -34,24 +34,27 @@ module testing::dao_contract{
 //CONSTANTS
     const MINUTE_CONVERSION_FACTOR: u64 =  60;
 
+//RESOURCES and STRUCTS
     struct DAO<phantom CoinType> has key {
         new_owner: address,
-        sku: u64, // Stock Keeping Unit
+        next_proposal_id: u64, // Stock Keeping Unit
         min_investment: u64, //minimum stake an individual has to commit to become a member
         min_voting_percentage: u64,
         min_voting_time: u64,
         min_proposal_deposit: u64,
         whitelisted_recipients: vector<address>,
-        proposal_addresses: TableWithLength<u64, address>,
+        proposals: TableWithLength<u64, Proposal<CoinType>>,
         investors: vector<address>,
         n_members: u64,
         funds: Coin<CoinType>,
-        executed_event: EventHandle<ExecutedEvent>,
-        closed_event: EventHandle<ClosedEvent>,
+        proposal_added_event: EventHandle<ProposalAddedEvent>,
+        proposal_executed_event: EventHandle<ProposalExecutedEvent>,
+        proposal_closed_event: EventHandle<ProposalClosedEvent>,
     }
 
     struct Proposal<phantom CoinType> has store {
         id: u64,
+        creator: address,
         recipient: address,
         investment: u64,
         deadline: u64,
@@ -67,18 +70,16 @@ module testing::dao_contract{
     struct DAO_member<phantom CoinType> has key {
         n_total_proposals: u64,
         invested_balance: u64,
-        active_proposals: TableWithLength<u64, Proposal<CoinType>>,
+        proposals_voted_on: vector<u64>,
         voted_event: EventHandle<VotedEvent>,
-        proposal_added_event: EventHandle<ProposalAddedEvent>,
-        //active_votes: vector<u64>,
     }
 
-    struct ExecutedEvent has drop, store {
+    struct ProposalExecutedEvent has drop, store {
         proposal_id: u64,
         amount_invested: u64,
     }
 
-    struct ClosedEvent has drop, store {
+    struct ProposalClosedEvent has drop, store {
         proposal_id: u64,
     }
 
@@ -93,7 +94,7 @@ module testing::dao_contract{
         investment: u64,
     }
 
-//DAO
+//OWNERSHIP
     public entry fun initialise_DAO<CoinType>(owner: &signer, min_investment: u64, min_voting_percentage: u64, min_voting_time: u64, proposal_deposit: u64) {
         let owner_address = signer::address_of(owner);
         assert!(owner_address == @testing, EONLY_DEPLOYER_CAN_INITIALIZE);
@@ -104,18 +105,19 @@ module testing::dao_contract{
             owner,
             DAO<CoinType> {
                 new_owner: owner_address,
-                sku: 1,
+                next_proposal_id: 1,
                 min_investment: min_investment,
                 min_voting_percentage: min_voting_percentage, //int that will be used to calculate if a proposal has the right amount of votes
                 min_voting_time: min_voting_time,
-                min_proposal_deposit:proposal_deposit,
+                min_proposal_deposit: proposal_deposit,
                 whitelisted_recipients: vector::empty<address>(),
-                proposal_addresses: table_with_length::new<u64, address>(),
+                proposals: table_with_length::new<u64, Proposal<CoinType>>(),
                 investors: vector::empty<address>(),
                 n_members: 1,
                 funds: coins_to_invest,
-                executed_event: account::new_event_handle<ExecutedEvent>(owner),
-                closed_event: account::new_event_handle<ClosedEvent>(owner),
+                proposal_added_event: account::new_event_handle<ProposalAddedEvent>(owner),
+                proposal_executed_event: account::new_event_handle<ProposalExecutedEvent>(owner),
+                proposal_closed_event: account::new_event_handle<ProposalClosedEvent>(owner),
             }
         );
 
@@ -124,10 +126,8 @@ module testing::dao_contract{
             DAO_member<CoinType>{
                 n_total_proposals: 0,
                 invested_balance: min_investment,
-                active_proposals: table_with_length::new<u64, Proposal<CoinType>>(),
+                proposals_voted_on: vector::empty<u64>(),
                 voted_event: account::new_event_handle<VotedEvent>(owner),
-                proposal_added_event: account::new_event_handle<ProposalAddedEvent>(owner),
-                //active_votes: vector::empty<u64>(),
             }
         );
     }
@@ -149,34 +149,48 @@ module testing::dao_contract{
         move_to<DAO<CoinType>>(new_owner, move_from<DAO<CoinType>>(owner_address));
     }
 
-    fun only_owner<CoinType>(owner: &signer) {
-        assert!(exists<DAO<CoinType>>(signer::address_of(owner)), EONLY_OWNER_CAN_CALL);
-    }
-
-    fun only_if_dao<CoinType>(dao_address: address){
-        assert!(exists<DAO<CoinType>>(dao_address), ENO_DAO_AT_ADDRESS);
-    }
-
-    public entry fun add_recipient<CoinType>(owner: &signer, recipient: address) acquires DAO {
+    //Only to be used during development!! This function will circumvent all safeties to remove all resources related to this module. 
+    //This is useful during development because an account can only own one resource of the same type. 
+    // By calling this function, we can use the same accounts for tests on the devnet
+    public entry fun destroy_dao<CoinType>(owner: &signer) acquires DAO, DAO_member {
         only_owner<CoinType>(owner);
-        let dao = borrow_global_mut<DAO<CoinType>>(signer::address_of(owner));
-        assert!(!vector::contains(& dao.whitelisted_recipients, & recipient), ERECIPIENT_ALREADY_ADDED);
-        vector::push_back(&mut dao.whitelisted_recipients, recipient);
+        let DAO<CoinType>{
+            new_owner: _,
+            next_proposal_id: next_proposal_id,
+            min_investment: _,
+            min_voting_percentage: _, //int that will be used to calculate if a proposal has the right amount of votes
+            min_voting_time: _,
+            min_proposal_deposit: _,
+            whitelisted_recipients: _,
+            proposals: proposals,
+            investors: investors,
+            n_members: _,
+            funds: funds,
+            proposal_added_event: proposal_added_event,
+            proposal_executed_event: proposal_executed_event,
+            proposal_closed_event: proposal_closed_event,
+            } = move_from<DAO<CoinType>>(signer::address_of(owner));
+            
+            //Give funds to owner
+            coin::deposit(signer::address_of(owner), funds);
+
+            //Remove all members
+            while (!vector::is_empty<address>(& investors)){
+                let member_address = vector::pop_back<address>(&mut investors);
+                destroy_dao_member<CoinType>(member_address);
+            };
+
+            // Destroy all the proposals
+            let starting_id = next_proposal_id - 1;
+            destroy_proposals<CoinType>(proposals, starting_id);
+
+            //Destroy the event handlers
+            event::destroy_handle(proposal_added_event);
+            event::destroy_handle(proposal_executed_event);
+            event::destroy_handle(proposal_closed_event);
     }
 
-    public entry fun remove_recipient<CoinType>(owner: &signer, recipient: address) acquires DAO {
-        only_owner<CoinType>(owner);
-        let dao = borrow_global_mut<DAO<CoinType>>(signer::address_of(owner));
-        assert!(!vector::contains(& dao.whitelisted_recipients, & recipient), ENO_SUCH_RECIPIENT);
-        let (_, index) = vector::index_of(& dao.whitelisted_recipients, & recipient);
-        vector::remove(&mut dao.whitelisted_recipients, index);
-    }
-
-//MEMBERSHIP
-    fun only_member<CoinType>(account: &signer) {
-        assert!(exists<DAO_member<CoinType>>(signer::address_of(account)), ENOT_A_MEMBER);
-    }
-
+//DAO FUNCTIONALITY
     public entry fun apply_for_membership<CoinType>(account: &signer, dao_address: address) acquires DAO {
         only_if_dao<CoinType>(dao_address);
         let account_address = signer::address_of(account);
@@ -194,15 +208,13 @@ module testing::dao_contract{
             DAO_member<CoinType>{
                 n_total_proposals: 0,
                 invested_balance: min_investment,
-                active_proposals: table_with_length::new<u64, Proposal<CoinType>>(),
+                proposals_voted_on: vector::empty<u64>(),
                 voted_event: account::new_event_handle<VotedEvent>(account),
-                proposal_added_event: account::new_event_handle<ProposalAddedEvent>(account),
-                //active_votes: vector::empty<u64>(),
             }
         );
         let n_members = &mut dao.n_members;
         *n_members = *n_members + 1;
-
+        vector::push_back(&mut dao.investors, account_address);
     }
 
     public entry fun renounce_membership<CoinType>(authenticator: &signer, dao_address: address, member_address: address) acquires DAO, DAO_member {
@@ -211,11 +223,6 @@ module testing::dao_contract{
         let is_member = (signer::address_of(authenticator) == member_address);
         assert!(is_owner || is_member, EONLY_OWNER_OR_MEMBER_CAN_CALL);
         assert!(exists<DAO_member<CoinType>>(member_address), ENOT_A_MEMBER);
-        //Member should not have any own active proposals
-        assert!(table_with_length::empty(& borrow_global<DAO_member<CoinType>>(member_address).active_proposals), ESTILL_ACTIVE_PROPOSALS); 
-        //Future feature: Keep track of active votes
-        // Member shouldn't have any active votes => this prevents people from voting against the best interest of the DAO and then bailing before the change is implemented
-        //assert!(vector::is_empty(& borrow_global<DAO_member<CoinType>>(member_address).active_votes), ESTILL_ACTIVE_VOTES);
 
         //Remove membership
         let dao = borrow_global_mut<DAO<CoinType>>(dao_address);
@@ -226,29 +233,32 @@ module testing::dao_contract{
         let DAO_member<CoinType>{
             n_total_proposals: _,
             invested_balance: _,
-            active_proposals: proposals_table,
+            proposals_voted_on: proposals_voted_on,
             voted_event: voted_event,
-            proposal_added_event: proposal_added_event,
-            //active_votes: votes_vector,
             } = move_from<DAO_member<CoinType>>(member_address);
-        table_with_length::destroy_empty<u64, Proposal<CoinType>>(proposals_table);
+        assert!(vector::is_empty(& proposals_voted_on), ESTILL_ACTIVE_VOTES); //Member should not have any votes placed on active proposals
+        vector::destroy_empty(proposals_voted_on);
         event::destroy_handle(voted_event);
-        event::destroy_handle(proposal_added_event);
-        //vector::destroy_empty<u64>(votes_vector);
 
         let n_members = &mut dao.n_members;
         *n_members = *n_members - 1;
+        let (_, index) = vector::index_of(& dao.investors, & member_address);
+        vector::remove(&mut dao.investors, index); 
     }
 
-//PROPOSAL
-    fun add_proposal_to_member<CoinType>(member_address: address, id: u64, proposal: Proposal<CoinType>) acquires DAO_member {
-        let dao_member = borrow_global_mut<DAO_member<CoinType>>(member_address);
-        let active_proposals = &mut dao_member.active_proposals;
-        table_with_length::add(active_proposals, id, proposal);
+    public entry fun add_recipient<CoinType>(owner: &signer, recipient: address) acquires DAO {
+        only_owner<CoinType>(owner);
+        let dao = borrow_global_mut<DAO<CoinType>>(signer::address_of(owner));
+        assert!(!vector::contains(& dao.whitelisted_recipients, & recipient), ERECIPIENT_ALREADY_ADDED);
+        vector::push_back(&mut dao.whitelisted_recipients, recipient);
+    }
 
-        //Future feature: keep track of active votes
-        //let active_votes = &mut dao_member.active_votes;
-        //vector::push_back(active_votes, id);
+    public entry fun remove_recipient<CoinType>(owner: &signer, recipient: address) acquires DAO {
+        only_owner<CoinType>(owner);
+        let dao = borrow_global_mut<DAO<CoinType>>(signer::address_of(owner));
+        assert!(!vector::contains(& dao.whitelisted_recipients, & recipient), ENO_SUCH_RECIPIENT);
+        let (_, index) = vector::index_of(& dao.whitelisted_recipients, & recipient);
+        vector::remove(&mut dao.whitelisted_recipients, index);
     }
 
     public entry fun new_proposal<CoinType>(member: &signer, dao_address: address, recipient: address, investment: u64, debating_time: u64) acquires DAO, DAO_member {
@@ -276,16 +286,17 @@ module testing::dao_contract{
         };
 
         let approval_threshold = dao.n_members * dao.min_voting_percentage /100;
-        let id = dao.sku;
+        let id = dao.next_proposal_id;
         
         let voted = vector::empty<address>();
         vector::push_back(&mut voted, member_address);
         //Create Proposal and add to member + add ID and member address to DAO 
-        add_proposal_to_member<CoinType>(
-            member_address,
+        add_proposal_to_dao<CoinType>(
+            dao_address,
             id,
             Proposal<CoinType>{
                 id: id,
+                creator: member_address,
                 recipient: recipient,
                 investment: investment,
                 deadline: deadline,
@@ -299,13 +310,16 @@ module testing::dao_contract{
             }
         );
 
-        table_with_length::add(&mut dao.proposal_addresses, id, member_address);
-        dao.sku = id + 1;
+        //table_with_length::add(&mut dao.proposals, id, member_address);
+        let dao = borrow_global_mut<DAO<CoinType>>(dao_address);
+        dao.next_proposal_id = id + 1;
 
+        //Add proposal id to member vector
         let dao_member = borrow_global_mut<DAO_member<CoinType>>(member_address);
+        vector::push_back(&mut dao_member.proposals_voted_on, id);
         dao_member.n_total_proposals = dao_member.n_total_proposals + 1;
         event::emit_event<ProposalAddedEvent>(
-            &mut dao_member.proposal_added_event,
+            &mut dao.proposal_added_event,
             ProposalAddedEvent { 
                 proposal_id: id, 
                 recipient: recipient,
@@ -319,10 +333,8 @@ module testing::dao_contract{
         only_if_dao<CoinType>(dao_address);
         let member_address = signer::address_of(member);
         let dao = borrow_global_mut<DAO<CoinType>>(dao_address);
-        assert!(table_with_length::contains(& dao.proposal_addresses, proposal_id), ENO_PROPOSAL_WITH_ID);
-        let proposal_address = table_with_length::borrow(&mut dao.proposal_addresses, proposal_id);
-        let proposals_at_address = &mut borrow_global_mut<DAO_member<CoinType>>(*proposal_address).active_proposals;
-        let proposal = table_with_length::borrow_mut(proposals_at_address, proposal_id);
+        assert!(table_with_length::contains(& dao.proposals, proposal_id), ENO_PROPOSAL_WITH_ID);
+        let proposal = table_with_length::borrow_mut(&mut dao.proposals, proposal_id);
 
         let now = timestamp::now_seconds()/MINUTE_CONVERSION_FACTOR;
         assert!(now < proposal.deadline, EPROPOSAL_DEADLINE_PASSED);
@@ -338,14 +350,12 @@ module testing::dao_contract{
 
         vector::push_back(&mut proposal.voted, member_address);
 
-        //Future feature: Keep track of active votes
-        //vector::push_back(&mut dao_member.active_votes, proposal_id);
-
         if(proposal.n_yes >= proposal.approval_threshold){
             proposal.approved = true;
         };
 
         let dao_member = borrow_global_mut<DAO_member<CoinType>>(member_address);
+        vector::push_back(&mut dao_member.proposals_voted_on, proposal_id);
         event::emit_event<VotedEvent>(
             &mut dao_member.voted_event,
             VotedEvent { 
@@ -359,56 +369,47 @@ module testing::dao_contract{
         only_owner<CoinType>(owner);
         let owner_address = signer::address_of(owner);
         let dao = borrow_global_mut<DAO<CoinType>>(owner_address);
-        assert!(table_with_length::contains(& dao.proposal_addresses, proposal_id), ENO_PROPOSAL_WITH_ID);
-        let proposal_address = table_with_length::remove(&mut dao.proposal_addresses, proposal_id);
-        let proposals_at_address = &mut borrow_global_mut<DAO_member<CoinType>>(proposal_address).active_proposals;
-        let Proposal<CoinType>{
-                id: _,
-                recipient: recipient,
-                investment: investment,
-                deadline: _,
-                active: active,
-                approved: approved,
-                approval_threshold: _,
-                deposit: deposit,
-                n_yes: _,
-                n_no: _,
-                voted: _,
-            } = table_with_length::remove(proposals_at_address, proposal_id);
+        assert!(table_with_length::contains(& dao.proposals, proposal_id), ENO_PROPOSAL_WITH_ID);
+        let proposal = table_with_length::borrow_mut(&mut dao.proposals, proposal_id);
 
         //Check if proposal has been approved (received the required number of votes)
-        assert!(approved, EPROPOSAL_NOT_APPROVED);
+        assert!(proposal.approved, EPROPOSAL_NOT_APPROVED);
 
         //Check if proposal is still active
-        assert!(active, EPROPOSAL_EXPIRED);
+        assert!(proposal.active, EPROPOSAL_EXPIRED);
 
         //Check if the recipient is still whitelisted
         let whitelisted = & dao.whitelisted_recipients;
-        assert!(vector::contains(whitelisted, & recipient), ERECIPIENT_NOT_WHITELISTED);
+        assert!(vector::contains(whitelisted, & proposal.recipient), ERECIPIENT_NOT_WHITELISTED);
 
         //Check if deadline has been reached
         //let now = timestamp::now_seconds()/MINUTE_CONVERSION_FACTOR;
         //assert!(now >= proposal.deadline, EPROPOSAL_DEADLINE_NOT_REACHED);
 
         //Check if the DAO has enough funds to currently fund the investment proposal
-        assert!(coin::value(& dao.funds) >= investment, ENOT_ENOUGH_FUNDS_IN_DAO);
+        assert!(coin::value(& dao.funds) >= proposal.investment, ENOT_ENOUGH_FUNDS_IN_DAO);
+
+        //Make proposal inactive
+        proposal.active = false;
 
         //Transfer funds to recipient
-        coin::deposit(recipient, coin::extract(&mut dao.funds, investment));
+        coin::deposit(proposal.recipient, coin::extract(&mut dao.funds, proposal.investment));
 
         //Return deposit + deactivate proposal
-        coin::deposit(proposal_address, deposit);
+        coin::deposit(proposal.creator, coin::extract_all(&mut proposal.deposit));
 
-        event::emit_event<ExecutedEvent>(
-            &mut dao.executed_event,
-            ExecutedEvent { 
+        //Remove proposal from dao_member proposals_voted_on vector
+        let dao_member = borrow_global_mut<DAO_member<CoinType>>(proposal.creator);
+        let (_, index) = vector::index_of(& dao_member.proposals_voted_on, & proposal_id);
+        vector::remove(&mut dao_member.proposals_voted_on, index); 
+
+        event::emit_event<ProposalExecutedEvent>(
+            &mut dao.proposal_executed_event,
+            ProposalExecutedEvent { 
                 proposal_id: proposal_id, 
-                amount_invested: investment,
+                amount_invested: proposal.investment,
             },
         );
-
-        //Future feature: Remove proposal id from active votes vector of all the dao_members that voted
-        //remove_proposal_id<CoinType>(proposal.voted, proposal_id);
     }
 
     // Non approved proposals can be closed by the owner. Even if the deadline has not yet reached
@@ -416,50 +417,82 @@ module testing::dao_contract{
         only_owner<CoinType>(owner);
         let owner_address = signer::address_of(owner);
         let dao = borrow_global_mut<DAO<CoinType>>(owner_address);
-        assert!(table_with_length::contains(& dao.proposal_addresses, proposal_id), ENO_PROPOSAL_WITH_ID);
-        let proposal_address = table_with_length::remove(&mut dao.proposal_addresses, proposal_id);
-        let proposals_at_address = &mut borrow_global_mut<DAO_member<CoinType>>(proposal_address).active_proposals;
-        let Proposal<CoinType>{
+        assert!(table_with_length::contains(& dao.proposals, proposal_id), ENO_PROPOSAL_WITH_ID);
+        let proposal = table_with_length::borrow_mut(&mut dao.proposals, proposal_id);
+
+        //Check if proposal has been approved (received the required number of votes)
+        assert!(!proposal.approved, EPROPOSAL_IS_APPROVED);
+
+        //Make proposal inactive
+        proposal.active = false;
+
+        //Return deposit
+        //coin::deposit(proposal.creator, proposal.deposit);
+        coin::deposit(proposal.creator, coin::extract_all(&mut proposal.deposit));
+
+        //Remove proposal from dao_member proposals_voted_on vector
+        let dao_member = borrow_global_mut<DAO_member<CoinType>>(proposal.creator);
+        let (_, index) = vector::index_of(& dao_member.proposals_voted_on, & proposal_id);
+        vector::remove(&mut dao_member.proposals_voted_on, index); 
+
+        event::emit_event<ProposalClosedEvent>(
+            &mut dao.proposal_closed_event,
+            ProposalClosedEvent { proposal_id: proposal_id },
+        );
+    }
+
+//HELPER FUNCTIONS
+    fun only_owner<CoinType>(owner: &signer) {
+        assert!(exists<DAO<CoinType>>(signer::address_of(owner)), EONLY_OWNER_CAN_CALL);
+    }
+
+    fun only_if_dao<CoinType>(dao_address: address){
+        assert!(exists<DAO<CoinType>>(dao_address), ENO_DAO_AT_ADDRESS);
+    }
+    
+    fun only_member<CoinType>(account: &signer) {
+        assert!(exists<DAO_member<CoinType>>(signer::address_of(account)), ENOT_A_MEMBER);
+    }
+
+    fun add_proposal_to_dao<CoinType>(member_address: address, id: u64, proposal: Proposal<CoinType>) acquires DAO {
+        let dao = borrow_global_mut<DAO<CoinType>>(member_address);
+        let proposals = &mut dao.proposals;
+        table_with_length::add(proposals, id, proposal);
+    }
+
+    fun destroy_dao_member<CoinType>(member_address: address) acquires DAO_member {
+        let DAO_member<CoinType>{
+            n_total_proposals: _,
+            invested_balance: _,
+            proposals_voted_on: _,
+            voted_event: voted_event,
+        } = move_from<DAO_member<CoinType>>(member_address);
+        event::destroy_handle(voted_event);
+    }
+
+    fun destroy_proposals<CoinType>(proposals: TableWithLength<u64, Proposal<CoinType>>, id: u64) {
+        while (!table_with_length::empty<u64, Proposal<CoinType>>(& proposals)){
+            let Proposal<CoinType>{
                 id: _,
+                creator: creator,
                 recipient: _,
                 investment: _,
                 deadline: _,
                 active: _,
-                approved: approved,
+                approved: _,
                 approval_threshold: _,
                 deposit: deposit,
                 n_yes: _,
                 n_no: _,
                 voted: _,
-            } = table_with_length::remove(proposals_at_address, proposal_id);
-
-        //Check if proposal has been approved (received the required number of votes)
-        assert!(!approved, EPROPOSAL_IS_APPROVED);
-
-        //Return deposit
-        coin::deposit(proposal_address, deposit);
-
-        //Future feature
-        //remove_proposal_id<CoinType>(proposal.voted, proposal_id);
-
-        event::emit_event<ClosedEvent>(
-            &mut dao.closed_event,
-            ClosedEvent { proposal_id: proposal_id },
-        );
+            } = table_with_length::remove<u64, Proposal<CoinType>>(&mut proposals, id);
+            coin::deposit(creator, deposit);
+            id = id - 1;
+        }; 
+        table_with_length::destroy_empty<u64, Proposal<CoinType>>(proposals);
     }
 
-//Future feature: keep track of active votes
-    // fun remove_proposal_id<CoinType>(voted_vector: vector<address>, proposal_id: u64) acquires DAO_member {
-    //     while (!vector::is_empty<address>(&mut voted_vector)){
-    //         let member_address = vector::pop_back<address>(&mut voted_vector);
-    //         let active_votes = &mut borrow_global_mut<DAO_member<CoinType>>(member_address).active_votes;
-    //         let (_,index) = vector::index_of(active_votes, & proposal_id);
-    //         vector::remove(active_votes, index);
-    //     }
-    // }
-
-//TESTS
-    //INIT DAO TEST
+//TEST HELPER FUNCTIONS
     #[test_only]
     public entry fun init_test_dao<CoinType>(owner: &signer) {
         let min_investment = 10000000;
@@ -474,17 +507,16 @@ module testing::dao_contract{
         let recipient = recipient_address;
         let investment = 10000000;
         let debating_time = 1;
-        let id = borrow_global<DAO<CoinType>>(dao_address).sku;
+        let id = borrow_global<DAO<CoinType>>(dao_address).next_proposal_id;
         new_proposal<CoinType>(member, dao_address, recipient, investment, debating_time);
         id
     }
 
-    //INIT TEST FUNCTION
     #[test_only]
     public entry fun is_owner_test<CoinType>(owner: &signer): bool {
         exists<DAO<CoinType>>(signer::address_of(owner))
     }
-    //ACCESS CONTROL TEST FUNCTIONS
+
     #[test_only]
     public entry fun is_member_test<CoinType>(member: &signer): bool {
         exists<DAO_member<CoinType>>(signer::address_of(member))
@@ -494,6 +526,6 @@ module testing::dao_contract{
     public entry fun test_has_proposal<CoinType>(member: &signer): bool acquires DAO_member {
         only_member<CoinType>(member);
         let member_address = signer::address_of(member);
-        !table_with_length::empty(& borrow_global<DAO_member<CoinType>>(member_address).active_proposals)
+        !vector::is_empty(& borrow_global<DAO_member<CoinType>>(member_address).proposals_voted_on)
     }
 }

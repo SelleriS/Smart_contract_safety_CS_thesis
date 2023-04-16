@@ -1,3 +1,7 @@
+// To really test this contract, one should create a new coin type like FakeMoney and create an AMM for FakeMoney and the new coin
+// This could possibly be realised by downloading the coin contract, deploying it under the current address. And instantiating FakeMoney.
+// The new FakeMoney will have been deployed under a new address and will thus not be the same as the aptos_framework::coin::FakeMoney.
+
 #[test_only]
 module testing::dao_tests{
     use testing::amm_contract;

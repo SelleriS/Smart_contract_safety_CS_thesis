@@ -258,8 +258,7 @@ module testing::amm_contract{
     }
 
 
-//TESTS
-//INIT TEST FUNCTION
+//TEST HELPER FUNCTIONS
     #[test_only]
     public entry fun is_owner_test<CoinType1, CoinType2>(owner: &signer): bool {
         exists<AMM<CoinType1, CoinType2>>(signer::address_of(owner))

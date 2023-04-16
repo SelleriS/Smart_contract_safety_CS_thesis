@@ -20,7 +20,7 @@ module testing::supplychain{
     const EPAYMENT_TOO_LOW: u64 = 10;
     const ENO_SUFFICIENT_FUND:u64 = 11;
 
-//STRUCTS
+//RESOURCES and STRUCTS
     struct SupplyChain<phantom CoinType> has key {
         new_owner: address,
         sku: u64, // Stock Keeping Unit
@@ -75,23 +75,7 @@ module testing::supplychain{
         move_to<SupplyChain<CoinType>>(new_owner, move_from<SupplyChain<CoinType>>(owner_address));
     }
 
-    fun only_if_supplychain<CoinType>(supply_chain_address: address){
-        assert!(exists<SupplyChain<CoinType>>(supply_chain_address), ENO_SUPPLY_CHAIN_AT_ADDRESS);
-    }
-
-    fun only_owner<CoinType>(owner: &signer) {
-        assert!(exists<SupplyChain<CoinType>>(signer::address_of(owner)), EONLY_OWNER_CAN_CALL);
-    }
-
-    fun only_role<RoleType>(applicant: &signer) {
-        assert!(roles::is_account_approved_for_role<RoleType>(signer::address_of(applicant)), EINCORRECT_ROLE);
-    }
-
 //ITEMSSTORE
-    fun only_if_itemstore<RoleType>(account_address: address){
-        assert!(exists<ItemStore<RoleType>>(account_address), ENO_ITEMSTORE);
-    }
-
     fun create_and_store_itemstore<RoleType>(account: &signer) {
         move_to(
             account, 
@@ -167,7 +151,6 @@ module testing::supplychain{
         remove_item_store<FarmerRole>(applicant_address);
         roles::remove_account<FarmerRole>(applicant_address);
     }
-
 //DISTRIBUTOR
     public entry fun apply_for_distributor(account: &signer) {
         roles::apply_for_role<DistributorRole>(account);
@@ -231,7 +214,7 @@ module testing::supplychain{
         roles::remove_account<ConsumerRole>(applicant_address);
     }
 
-//SUPPLYCHAIN FUNCTIONS
+//SUPPLYCHAIN FUNCTIONALITY
     public entry fun harvest_item<CoinType>(farmer: &signer, supply_chain_address:address, upc: u64) acquires SupplyChain, ItemStore{
         only_if_supplychain<CoinType>(supply_chain_address);
         only_role<FarmerRole>(farmer);
@@ -350,9 +333,24 @@ module testing::supplychain{
         check_and_update_item_state<ConsumerRole>(consumer, upc, 6, 7);
     }
 
+//HELPER FUNCTIONS
+    fun only_if_supplychain<CoinType>(supply_chain_address: address){
+        assert!(exists<SupplyChain<CoinType>>(supply_chain_address), ENO_SUPPLY_CHAIN_AT_ADDRESS);
+    }
 
+    fun only_owner<CoinType>(owner: &signer) {
+        assert!(exists<SupplyChain<CoinType>>(signer::address_of(owner)), EONLY_OWNER_CAN_CALL);
+    }
 
-//TESTS
+    fun only_role<RoleType>(applicant: &signer) {
+        assert!(roles::is_account_approved_for_role<RoleType>(signer::address_of(applicant)), EINCORRECT_ROLE);
+    }
+
+    fun only_if_itemstore<RoleType>(account_address: address){
+        assert!(exists<ItemStore<RoleType>>(account_address), ENO_ITEMSTORE);
+    }
+
+//TEST HELPER FUNCTIONS
     //INIT TEST FUNCTION
     #[test_only]
     public entry fun is_owner_test<CoinType>(owner: &signer): bool {

@@ -83,16 +83,18 @@ module testing::dao_contract{
         proposal_id: u64,
     }
 
-    struct VotedEvent has drop, store {
-        proposal_id: u64,
-        vote: bool,
-    }
-
     struct ProposalAddedEvent has drop, store {
         proposal_id: u64,
         recipient: address,
         investment: u64,
     }
+
+    struct VotedEvent has drop, store {
+        proposal_id: u64,
+        vote: bool,
+    }
+
+    
 
 //OWNERSHIP
     public entry fun initialise_DAO<CoinType>(owner: &signer, min_investment: u64, min_voting_percentage: u64, min_voting_time: u64, proposal_deposit: u64) {

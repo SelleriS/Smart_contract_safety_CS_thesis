@@ -4,16 +4,23 @@ module testing::amm_contract{
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::coin::{Self, Coin};
 
+    spec module {
+        pragma aborts_if_is_partial = true; // This allows not to cover every abort clause in the spec's and only check the once you want
+                                            // If this is not set, but a aborts-if is set in a certain spec, 
+                                            // that spec must contain all abort conditions, even those outise this module
+    }
+
 //ERROR CODES
-    const EONLY_DEPLOYER_CAN_INITIALIZE: u64 = 0; 
-    const ENO_AMM_AT_ADDRESS: u64 = 1;
-    const EONLY_OWNER_CAN_CALL: u64 = 2;
-    const ETRANSFER_NOT_APPROVED_BY_OWNER: u64 = 3;
-    const ENO_SUFFICIENT_FUND: u64 = 4;
-    const EAMOUNT_IS_ZERO: u64 = 5;
-    const EAMOUNTS_NOT_IN_BALANCE: u64 = 6;
-    const ENO_SHARES_AT_ADDRESS: u64 = 7;
-    const ENOT_ENOUGH_SHARES: u64 = 8;
+    const EALREADY_CONTAINS_SAME_AMM: u64 = 0;
+    const EONLY_DEPLOYER_CAN_INITIALIZE: u64 = 1; 
+    const ENO_AMM_AT_ADDRESS: u64 = 2;
+    const EONLY_OWNER_CAN_CALL: u64 = 3;
+    const ETRANSFER_NOT_APPROVED_BY_OWNER: u64 = 4;
+    const ENO_SUFFICIENT_FUND: u64 = 5;
+    //const EAMOUNT_IS_ZERO: u64 = 6;
+    const EAMOUNTS_NOT_IN_BALANCE: u64 = 7;
+    const ENO_SHARES_AT_ADDRESS: u64 = 8;
+    const ENOT_ENOUGH_SHARES: u64 = 9;
 
 //CONSTANTS
     const FEE_PERMILLE: u64 = 3; //Fee of 0.3%
@@ -54,15 +61,17 @@ module testing::amm_contract{
     public entry fun initialise_amm<CoinType1, CoinType2>(owner: &signer) {
         let owner_address = signer::address_of(owner);
         assert!(owner_address == @testing, EONLY_DEPLOYER_CAN_INITIALIZE);
+        assert!(!exists<AMM<CoinType1, CoinType2>>(owner_address), EALREADY_CONTAINS_SAME_AMM);
 
-        let coin1_empty = coin::withdraw<CoinType1>(owner, 0);
-        let coin2_empty = coin::withdraw<CoinType2>(owner, 0);
+        let coins1_empty = coin::withdraw<CoinType1>(owner, 0);
+        let coins2_iempty = coin::withdraw<CoinType2>(owner, 0);
+
         move_to(
             owner,
             AMM<CoinType1, CoinType2> {
                 new_owner: owner_address,
-                coin1: coin1_empty,
-                coin2: coin2_empty,
+                coin1: coins1_empty,
+                coin2: coins2_iempty,
                 total_n_shares: 0,
                 swapped_event: account::new_event_handle<SwappedEvent>(owner),
                 liquidity_added_event: account::new_event_handle<LiquidityAddedEvent>(owner),
@@ -71,10 +80,26 @@ module testing::amm_contract{
         );
     }
 
+    spec initialise_amm {
+        let owner_address = signer::address_of(owner);
+        requires owner_address == @testing;
+        requires !exists<AMM<CoinType1, CoinType2>>(owner_address);
+        aborts_if owner_address != @testing; 
+        ensures exists<AMM<CoinType1, CoinType2>>(owner_address);
+        ensures global<AMM<CoinType1, CoinType2>>(owner_address).total_n_shares == 0;
+    }
+
     public entry fun initiate_ownership_transfer<CoinType1, CoinType2>(owner: &signer, new_owner_address: address) acquires AMM{
         only_owner<CoinType1,CoinType2>(owner);
         let new_owner = &mut borrow_global_mut<AMM<CoinType1,CoinType2>>(signer::address_of(owner)).new_owner;
         *new_owner = new_owner_address;
+    }
+
+    spec initiate_ownership_transfer {
+        let owner_address = signer::address_of(owner);
+        requires exists<AMM<CoinType1, CoinType2>>(owner_address);
+        requires !exists<AMM<CoinType1, CoinType2>>(new_owner_address);
+        ensures global<AMM<CoinType1, CoinType2>>(owner_address).new_owner == new_owner_address;
     }
 
     public entry fun transfer_ownership<CoinType1, CoinType2>(new_owner: &signer, owner_address: address) acquires AMM{
@@ -87,15 +112,25 @@ module testing::amm_contract{
         move_to<AMM<CoinType1, CoinType2>>(new_owner, move_from<AMM<CoinType1,CoinType2>>(owner_address));
     }
 
+    spec transfer_ownership {
+        let new_owner_address = signer::address_of(new_owner);
+        requires exists<AMM<CoinType1, CoinType2>>(owner_address);
+        requires !exists<AMM<CoinType1, CoinType2>>(new_owner_address);
+        requires global<AMM<CoinType1, CoinType2>>(owner_address).new_owner == new_owner_address;
+        aborts_if global<AMM<CoinType1, CoinType2>>(owner_address).new_owner != new_owner_address;
+        ensures exists<AMM<CoinType1, CoinType2>>(new_owner_address);
+    }
+
 //AMM FUNCTIONALITY
     //Use CoinType3 to indicate which CoinType you want to swap. It must be equal to either CoinType1 or CoinType2
     public entry fun swap<CoinType1, CoinType2, CoinType3>(user: &signer, amm_address: address, amount: u64) acquires AMM {
         let is_CoinType1 = only_if_amm<CoinType1, CoinType2, CoinType3>(amm_address);
         let coins_in = check_balance_and_withdraw<CoinType3>(user, amount);
         
-        //Caluclating fee
+        //Calculating fee
         let fee_amount = (amount * FEE_PERMILLE)/ 1000;
         let coins_as_fee = coin::extract(&mut coins_in, fee_amount);
+        //coin::deposit<CoinType3>(amm_address, coins_as_fee);
 
         //Swap
         let coins_in_amount = coin::value<CoinType3>(& coins_in);
@@ -129,6 +164,18 @@ module testing::amm_contract{
                 amount_out: coins_out_amount,
             },
         );
+    }
+
+    spec swap {
+        let is_CoinType1 = only_if_amm<CoinType1, CoinType2, CoinType3>(amm_address);
+        requires exists<AMM<CoinType1, CoinType2>>(amm_address);
+        requires coin::balance<CoinType3>(signer::address_of(user)) >= amount;
+        aborts_if !exists<AMM<CoinType1, CoinType2>>(amm_address);
+        ensures is_CoinType1 ==> (old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1)) <= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1))
+            && (old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2)) >= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2));
+        ensures !is_CoinType1 ==> (old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1)) >= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1))
+            && (old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2)) <= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2));
+        ensures old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1)) * old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2)) <= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1) * coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2);
     }
 
     public entry fun add_liquidity<CoinType1, CoinType2>(user: &signer, amm_address: address, amount1: u64, amount2: u64) acquires AMM, Shares {
@@ -178,6 +225,19 @@ module testing::amm_contract{
         );
     }
 
+    spec add_liquidity {
+        let user_address = signer::address_of(user);
+        requires exists<AMM<CoinType1, CoinType2>>(amm_address);
+        requires coin::balance<CoinType1>(user_address) >= amount1;
+        requires coin::balance<CoinType2>(user_address) >= amount2;
+        aborts_if !exists<AMM<CoinType1, CoinType2>>(amm_address);
+        ensures old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1)) <= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1);
+        ensures old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2)) <= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2);
+        ensures exists<Shares>(user_address);
+        ensures old(exists<Shares>(user_address)) ==> (old(global<Shares>(user_address).number_of_shares) <= global<Shares>(user_address).number_of_shares);
+        ensures old(global<AMM<CoinType1, CoinType2>>(amm_address).total_n_shares) <= global<AMM<CoinType1, CoinType2>>(amm_address).total_n_shares;
+    }
+
     public entry fun remove_liquidity<CoinType1, CoinType2>(user: &signer, amm_address: address, number_of_shares: u64) acquires AMM, Shares {
         let user_address = signer::address_of(user);
         assert!(exists<Shares>(user_address), ENO_SHARES_AT_ADDRESS);
@@ -194,6 +254,8 @@ module testing::amm_contract{
         coin::deposit<CoinType1>(user_address, coin::extract<CoinType1>(&mut amm.coin1, amount1));
         coin::deposit<CoinType2>(user_address, coin::extract<CoinType2>(&mut amm.coin2, amount2));
 
+        amm.total_n_shares = amm.total_n_shares - number_of_shares;
+
         event::emit_event<LiquidityRemovedEvent>(
             &mut amm.liquidity_removed_event,
             LiquidityRemovedEvent { 
@@ -204,10 +266,27 @@ module testing::amm_contract{
         );
     }
 
+    spec remove_liquidity {
+        let user_address = signer::address_of(user);
+        requires exists<Shares>(user_address);
+        requires exists<AMM<CoinType1, CoinType2>>(amm_address);
+        aborts_if !exists<Shares>(user_address);
+        aborts_if !exists<AMM<CoinType1, CoinType2>>(amm_address);
+        ensures old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1)) >= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin1);
+        ensures old(coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2)) >= coin::value(global<AMM<CoinType1, CoinType2>>(amm_address).coin2);
+        ensures exists<Shares>(user_address) ==> old(global<Shares>(user_address).number_of_shares) == (global<Shares>(user_address).number_of_shares + number_of_shares);
+        ensures old(global<AMM<CoinType1, CoinType2>>(amm_address).total_n_shares) == (global<AMM<CoinType1, CoinType2>>(amm_address).total_n_shares + number_of_shares);
+    }
+
 
 //HELPER FUNCTIONS
     fun only_owner<CoinType1, CoinType2>(owner: &signer) {
         assert!(exists<AMM<CoinType1, CoinType2>>(signer::address_of(owner)), EONLY_OWNER_CAN_CALL);
+    }
+
+    spec only_owner {
+        let owner_address = signer::address_of(owner);
+        aborts_if !exists<AMM<CoinType1, CoinType2>>(owner_address);
     }
 
     //Checks if CoinType3 is either equal to CoinType1 or CoinType2 and returns if it + checks that an amm exists with CoinType1 and CoinType2
@@ -218,10 +297,18 @@ module testing::amm_contract{
         cond1
     }
 
+    spec only_if_amm {
+        requires exists<AMM<CoinType1, CoinType2>>(amm_address);
+        aborts_if !exists<AMM<CoinType1, CoinType2>>(amm_address);
+    }
+
     fun check_balance_and_withdraw<CoinType>(user: &signer, amount: u64): Coin<CoinType> {
-        assert!(amount > 0, EAMOUNT_IS_ZERO);
         assert!(coin::balance<CoinType>(signer::address_of(user)) >= amount, ENO_SUFFICIENT_FUND);
         coin::withdraw<CoinType>(user, amount)
+    }
+
+    spec check_balance_and_withdraw {
+        aborts_if coin::balance<CoinType>(signer::address_of(user)) < amount;
     }
 
     fun burn_shares(user_address: address, number_of_shares: u64) acquires Shares {
@@ -234,12 +321,21 @@ module testing::amm_contract{
         }
     }
 
+    spec burn_shares {
+        aborts_if global<Shares>(user_address).number_of_shares < number_of_shares;
+    }
+
     fun minimum (number1: u64, number2: u64): u64 {
         let result = number1;
         if(number2 < number1) {
             result = number2;
         };
         result
+    }
+
+    spec minimum {
+        ensures number1 <= number2 ==> result == number1;
+        ensures number1 > number2 ==> result == number2;
     }
 
     //Function taken from: https://solidity-by-example.org/defi/constant-product-amm/

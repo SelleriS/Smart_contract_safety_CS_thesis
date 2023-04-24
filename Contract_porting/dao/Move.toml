@@ -9,4 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
 std = "0x01"
-testing = "0x43a9ae15d0dd57e354c03658201468e61e94387d35f3b931e5e21bc13d8ec582"
+testing = "0xb92ac3e60345f8a9393c69f5bf7d9c04beaaa4c766fc0a5f3f3e603aa59b8f19"

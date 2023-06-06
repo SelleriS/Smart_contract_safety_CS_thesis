@@ -87,11 +87,14 @@ module testing::supplychain_tests{
         let totalMoney = 100000000u64; //100.000.000 octas = 1 APT
         coin::create_fake_money(&framework, &farmer, totalMoney);
         coin::register<FakeMoney>(&distributor);
-        //coin::register<FakeMoney>(&consumer);
+        coin::register<FakeMoney>(&retailer);
+        coin::register<FakeMoney>(&consumer);
 
-        // Allocating the FakeMoney coins to each donor account
-        coin::transfer<FakeMoney>(&framework, signer::address_of(&farmer), 50000000);
-        coin::transfer<FakeMoney>(&framework, signer::address_of(&distributor), 50000000);
+        // Allocating the FakeMoney coins to each account
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&farmer), 30000000);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&distributor), 30000000);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&retailer), 10000000);
+        coin::transfer<FakeMoney>(&framework, signer::address_of(&consumer), 30000000);
 
 
         // Init supplychain and roles
@@ -119,12 +122,12 @@ module testing::supplychain_tests{
         supplychain::sell_item<FakeMoney>(&farmer, signer::address_of(&owner), upc, price);
         
         // Distributor activities
-        let amount = 10000100;
-        supplychain::buy_item<FakeMoney>(&distributor, signer::address_of(&owner), signer::address_of(&farmer), upc, amount);
+        supplychain::buy_item<FakeMoney>(&distributor, signer::address_of(&owner), signer::address_of(&farmer), upc);
         supplychain::ship_item<FakeMoney>(&distributor, signer::address_of(&owner), upc);
 
         // Retailer acitivities
-        supplychain::receive_item<FakeMoney>(&retailer, signer::address_of(&owner), signer::address_of(&distributor), upc);
+        let new_price = 10000100;
+        supplychain::receive_item<FakeMoney>(&retailer, signer::address_of(&owner), signer::address_of(&distributor), upc, new_price);
 
         // Consumer acitivities
         supplychain::purchase_item<FakeMoney>(&consumer, signer::address_of(&owner), signer::address_of(&retailer), upc);

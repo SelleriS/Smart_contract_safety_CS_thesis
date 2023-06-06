@@ -17,10 +17,9 @@ module testing::amm_contract{
     const EONLY_OWNER_CAN_CALL: u64 = 3;
     const ETRANSFER_NOT_APPROVED_BY_OWNER: u64 = 4;
     const ENO_SUFFICIENT_FUND: u64 = 5;
-    //const EAMOUNT_IS_ZERO: u64 = 6;
-    const EAMOUNTS_NOT_IN_BALANCE: u64 = 7;
-    const ENO_SHARES_AT_ADDRESS: u64 = 8;
-    const ENOT_ENOUGH_SHARES: u64 = 9;
+    const EAMOUNTS_NOT_IN_BALANCE: u64 = 6;
+    const ENO_SHARES_AT_ADDRESS: u64 = 7;
+    const ENOT_ENOUGH_SHARES: u64 = 8;
 
 //CONSTANTS
     const FEE_PERMILLE: u64 = 3; //Fee of 0.3%
@@ -82,11 +81,11 @@ module testing::amm_contract{
 
     spec initialise_amm {
         let owner_address = signer::address_of(owner);
-        requires owner_address == @testing;
-        requires !exists<AMM<CoinType1, CoinType2>>(owner_address);
-        aborts_if owner_address != @testing; 
-        ensures exists<AMM<CoinType1, CoinType2>>(owner_address);
-        ensures global<AMM<CoinType1, CoinType2>>(owner_address).total_n_shares == 0;
+        requires owner_address == @testing; //Only deployer can call
+        requires !exists<AMM<CoinType1, CoinType2>>(owner_address); // Caller can not already have an AMM of the same type
+        aborts_if owner_address != @testing; // Function aborts if the owner is not the deployer
+        ensures exists<AMM<CoinType1, CoinType2>>(owner_address); // At function exit the caller should have an AMM of the correct type
+        ensures global<AMM<CoinType1, CoinType2>>(owner_address).total_n_shares == 0; // The total shares of the AMM must be zero
     }
 
     public entry fun initiate_ownership_transfer<CoinType1, CoinType2>(owner: &signer, new_owner_address: address) acquires AMM{
@@ -128,9 +127,8 @@ module testing::amm_contract{
         let coins_in = check_balance_and_withdraw<CoinType3>(user, amount);
         
         //Calculating fee
-        let fee_amount = (amount * FEE_PERMILLE)/ 1000;
+        let fee_amount = amount * (1000 - FEE_PERMILLE)/ 1000;
         let coins_as_fee = coin::extract(&mut coins_in, fee_amount);
-        //coin::deposit<CoinType3>(amm_address, coins_as_fee);
 
         //Swap
         let coins_in_amount = coin::value<CoinType3>(& coins_in);

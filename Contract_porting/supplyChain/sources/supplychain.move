@@ -17,8 +17,7 @@ module testing::supplychain{
     const EITEMSTORE_NOT_EMPTY: u64 = 7;
     const EINCORRECT_ROLE: u64 = 8;
     const ESTATE_DOES_NOT_MATCH: u64 = 9;
-    const EPAYMENT_TOO_LOW: u64 = 10;
-    const ENO_SUFFICIENT_FUND:u64 = 11;
+    const ENO_SUFFICIENT_FUND:u64 = 10;
 
 //RESOURCES and STRUCTS
     struct SupplyChain<phantom CoinType> has key {
@@ -261,31 +260,22 @@ module testing::supplychain{
         check_and_update_item_state<FarmerRole>(farmer, upc, 2, 3);
     }
 
-    public entry fun buy_item<CoinType>(distributor: &signer, supply_chain_address: address, farmer_address: address, upc: u64, amount: u64) acquires ItemStore{
+    public entry fun buy_item<CoinType>(distributor: &signer, supply_chain_address: address, farmer_address: address, upc: u64) acquires ItemStore{
         only_if_supplychain<CoinType>(supply_chain_address);
         only_role<DistributorRole>(distributor);
         check_item_state<FarmerRole>(farmer_address, upc, 3);
         
-        //Check if amount > price
-        let items = &mut borrow_global_mut<ItemStore<FarmerRole>>(farmer_address).items;
-        let price = & table_with_length::borrow_mut(items, upc).price;
-        assert!(amount >= *price, EPAYMENT_TOO_LOW);
-        
-        //Check if buyer_balance > amount)
-        let distributor_address = signer::address_of(distributor);
-        assert!(coin::balance<CoinType>(distributor_address) >= *price, ENO_SUFFICIENT_FUND);
-        
         //Transfer coins
-        let coins = coin::withdraw<CoinType>(distributor, *price);
-        coin::deposit(farmer_address, coins);
+        transfer_coins<CoinType, FarmerRole>(distributor, farmer_address, upc);
         
         //Transfer item
+        let distributor_address = signer::address_of(distributor);
         transfer_between_itemstores<FarmerRole, DistributorRole>(farmer_address, distributor_address, upc);
         
         //Update distributorID field in Item
         let items = &mut borrow_global_mut<ItemStore<DistributorRole>>(distributor_address).items;
-        let distributor_ID = &mut table_with_length::borrow_mut(items, upc).distributor_ID;
-        *distributor_ID = distributor_address;
+        let item = table_with_length::borrow_mut(items, upc);
+        item.distributor_ID = distributor_address;
 
         //Update state
         check_and_update_item_state<DistributorRole>(distributor, upc, 3, 4);
@@ -297,7 +287,7 @@ module testing::supplychain{
         check_and_update_item_state<DistributorRole>(distributor, upc, 4, 5);
     }
 
-    public entry fun receive_item<CoinType>(retailer: &signer, supply_chain_address: address, distributor_address: address, upc: u64) acquires ItemStore{
+    public entry fun receive_item<CoinType>(retailer: &signer, supply_chain_address: address, distributor_address: address, upc: u64, new_price: u64) acquires ItemStore{
         only_if_supplychain<CoinType>(supply_chain_address);
         only_role<RetailerRole>(retailer);        
         check_item_state<DistributorRole>(distributor_address, upc, 5);
@@ -306,10 +296,11 @@ module testing::supplychain{
         let retailer_address = signer::address_of(retailer);
         transfer_between_itemstores<DistributorRole, RetailerRole>(distributor_address, retailer_address, upc);
         
-        //Update retailerID field in Item
+        //Update retailerID field and price in Item
         let items = &mut borrow_global_mut<ItemStore<RetailerRole>>(retailer_address).items;
-        let retailer_ID = &mut table_with_length::borrow_mut(items, upc).retailer_ID;
-        *retailer_ID = retailer_address;
+        let item = table_with_length::borrow_mut(items, upc);
+        item.retailer_ID = retailer_address;
+        item.price = new_price;
         
         //Update state
         check_and_update_item_state<RetailerRole>(retailer, upc, 5, 6);
@@ -320,6 +311,9 @@ module testing::supplychain{
         only_role<ConsumerRole>(consumer);
         check_item_state<RetailerRole>(retailer_address, upc, 6);
         
+        //Transfer coins
+        transfer_coins<CoinType, RetailerRole>(consumer, retailer_address, upc);
+
         //Transfer item
         let consumer_address = signer::address_of(consumer);
         transfer_between_itemstores<RetailerRole, ConsumerRole>(retailer_address, consumer_address, upc);
@@ -348,6 +342,17 @@ module testing::supplychain{
 
     fun only_if_itemstore<RoleType>(account_address: address){
         assert!(exists<ItemStore<RoleType>>(account_address), ENO_ITEMSTORE);
+    }
+
+    fun transfer_coins<CoinType, RoleType>(user: &signer, transfer_to_address: address, upc: u64) acquires ItemStore {
+        //Check if buyer_balance > price)
+        let items = &mut borrow_global_mut<ItemStore<RoleType>>(transfer_to_address).items;
+        let price = & table_with_length::borrow_mut(items, upc).price;
+        assert!(coin::balance<CoinType>(signer::address_of(user)) >= *price, ENO_SUFFICIENT_FUND);
+        
+        //Transfer coins
+        let coins = coin::withdraw<CoinType>(user, *price);
+        coin::deposit(transfer_to_address, coins);
     }
 
 //TEST HELPER FUNCTIONS

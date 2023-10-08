@@ -1,8 +1,8 @@
-#Smart contract safety: A comparative study between Solidity and Move smart contract languages
+# Smart contract safety: A comparative study between Solidity and Move smart contract languages
 
 This repository contains all the code experiments conducted for my master's thesis to obtain my degree in Engineering Science: Computer science at the KU Leuven. These experiments were conducted in two main programming languages, namely Solidity and Move. 
 
-##Abstract
+## Abstract
 
 Blockchain technology has profoundly impacted numerous industries since its in- troduction in 2008. It is used in fields like supply chain management, identity management, governance, etc. Its widespread use is primarily due to its support for smart contracts, which are immutable self-operating computer programs that passively automate the execution of an agreement when certain conditions are met. Smart contracts have numerous use cases, including the management of million-dollar funds. This makes them prime targets for malicious actors. Million-dollar heists such as The DAO hack show the importance of securing smart contracts.
 
